@@ -8,7 +8,7 @@ export interface Note {
     pitch: number;
     velocity: number;
     duration: number;
-    deltaTime: number; //ticks between
+    startTime: number; //start time from start of the bar
 }
 
 export interface TimeSettings {
