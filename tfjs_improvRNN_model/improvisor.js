@@ -33,44 +33,26 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-//const Tone = require('tone')
-//require('@tensorflow/tfjs-node');
-//const _ = require('lodash');
 const core = __importStar(require("@magenta/music/node/core"));
 const music_rnn_1 = require("@magenta/music/node/music_rnn");
-//const core = require('@magenta/music/node/core');
-const mm = require('@magenta/music/node/music_rnn');
+const _ = require('lodash');
+const Detect = require('tonal-detect');
 const Tonal = require('tonal');
-const Detect = require("tonal-detect");
 const maxApi = require("max-api");
 let improvisor;
-function loadModel(path) {
-    return __awaiter(this, void 0, void 0, function* () {
-        // Using the Improv RNN pretrained model from https://github.com/tensorflow/magenta/tree/master/magenta/models/improv_rnn
-        let rnn = new music_rnn_1.MusicRNN(path);
-        return yield rnn;
-    });
-}
-function quantizeNotes(notes, timeSettings) {
-    const quantizedNotes = notes.map((note) => {
-        const quantizedNote = {
-            pitch: note.pitch,
-            velocity: note.velocity,
-            duration: note.duration,
-            startTime: note.startTime
-        };
-        return quantizedNote;
-    });
-    return quantizedNotes;
-}
 class Improvisor {
     constructor(timeSettings) {
-        this.model = null; //loadModel('https://storage.googleapis.com/download.magenta.tensorflow.org/tfjs_checkpoints/music_rnn/chord_pitches_improv');
+        this.model = this.loadModel('https://storage.googleapis.com/download.magenta.tensorflow.org/tfjs_checkpoints/music_rnn/chord_pitches_improv');
         this.timeSettings = timeSettings;
         this.currentChordProg = [];
-        this.inputNotes = null;
-        this.quantizedNotes = null;
-        //this.model.initialize();
+        this.inputNotes = [];
+        this.quantizedNotes = core.sequences.createQuantizedNoteSequence();
+    }
+    loadModel(path) {
+        // Using the Improv RNN pretrained model from https://github.com/tensorflow/magenta/tree/master/magenta/models/improv_rnn
+        let rnn = new music_rnn_1.MusicRNN(path);
+        rnn.initialize();
+        return rnn;
     }
     updateTimeSettings(timeSettings) {
         this.timeSettings = timeSettings;
@@ -78,7 +60,17 @@ class Improvisor {
     updateChordProg(chordProg) {
         this.currentChordProg = chordProg;
     }
-    quantizeNotes() {
+    quantizeInputNotes() {
+        // if (!this.model){
+        //     throw new Error("Model not loaded!");
+        // }
+        var _a, _b, _c;
+        // if (!this.model.isInitialized){
+        //     throw new Error("Model not Initialized!");
+        // }
+        // if (!this.timeSettings){
+        //     throw new Error("Time Settings not initialized!");
+        // }
         if (this.inputNotes) {
             let notes = [];
             for (let i = 0; i < this.inputNotes.length; i++) {
@@ -88,33 +80,41 @@ class Improvisor {
                     endTime: this.inputNotes[i].startTime + this.inputNotes[i].duration,
                 });
             }
-            let quantizedSequence = core.sequences.quantizeNoteSequence({
-                ticksPerQuarter: 480,
-                totalTime: this.timeSettings.bpm / 60 * this.timeSettings.numbeats,
-                quantizationInfo: {
-                    stepsPerQuarter: 4
-                },
-                timeSignatures: [
-                    {
+            const unquantizedSequence = {
+                notes: notes,
+                tempos: [{
                         time: 0,
-                        numerator: this.timeSettings.numbeats,
-                        denominator: this.timeSettings.beatvalue
-                    }
-                ],
-                tempos: [
-                    {
-                        time: 0,
-                        qpm: this.timeSettings.bpm
-                    }
-                ],
-                notes
-            }, 1);
+                        qpm: (_a = this.timeSettings) === null || _a === void 0 ? void 0 : _a.bpm
+                    }],
+                totalTime: 60 / ((_b = this.timeSettings) === null || _b === void 0 ? void 0 : _b.bpm) * ((_c = this.timeSettings) === null || _c === void 0 ? void 0 : _c.numbeats),
+            };
+            let quantizedSequence = core.sequences.quantizeNoteSequence(unquantizedSequence, 4);
             this.quantizedNotes = quantizedSequence;
         }
+        else {
+            throw new Error("No input notes!");
+        }
+    }
+    generateNewSequence() {
+        return __awaiter(this, void 0, void 0, function* () {
+            let midiNotes = this.quantizedNotes.notes.map(n => n.pitch);
+            console.log(midiNotes);
+            const notes = midiNotes.map(Tonal.Note.fromMidi);
+            console.log(notes);
+            const possibleChords = Detect.chord(notes);
+            console.log(possibleChords);
+            try {
+                return yield this.model.continueSequence(this.quantizedNotes, 16, 1.2, possibleChords);
+            }
+            catch (error) {
+                console.log(error);
+                return;
+            }
+        });
     }
 }
 //retrieve time Settings from Max Patch, initialize Improvisor
-maxApi.addHandler("getTimeSettings", (numbeats, beatvalue, measuredbeat, isDotted, bpm) => {
+maxApi.addHandler("setTimeSettings", (numbeats, beatvalue, measuredbeat, isDotted, bpm) => {
     const timeSettings = {
         numbeats: numbeats,
         beatvalue: beatvalue,
@@ -122,16 +122,14 @@ maxApi.addHandler("getTimeSettings", (numbeats, beatvalue, measuredbeat, isDotte
         isDotted: isDotted,
         bpm: bpm
     };
-    if (improvisor) {
-        improvisor.updateTimeSettings(timeSettings);
-    }
-    else {
-        improvisor = new Improvisor(timeSettings);
-    }
+    improvisor = new Improvisor(timeSettings);
     console.log(improvisor.timeSettings);
 });
-3;
 maxApi.addHandler("getNotes", (...midiNotes) => {
+    if (midiNotes.length == 0) {
+        return;
+    }
+    let notes = [];
     for (let i = 0; i < midiNotes.length; i += 4) {
         let note = {
             pitch: midiNotes[i],
@@ -142,39 +140,17 @@ maxApi.addHandler("getNotes", (...midiNotes) => {
         if (improvisor.inputNotes === null) {
             improvisor.inputNotes = [];
         }
-        improvisor.inputNotes.push(note);
+        notes.push(note);
     }
+    improvisor.inputNotes = notes;
     console.log(improvisor.inputNotes);
-    improvisor.quantizeNotes();
+    improvisor.quantizeInputNotes();
     console.log(improvisor.quantizedNotes);
-    // console.log("MIDI NOTES ARRAY –––––––– \n")
-    // console.log(midiNotesArray)
-    // console.log("NOTES ARRAY –––––––– \n")
-    // console.log(notes);
 });
-//     _.forEach(midiNotesArray, (note) => {
-//     // let notes = [];
-//     // for (let i = 0; i < midiNotes.length; i++) {
-//     //     if (seq[i] === -1 && notes.length) {
-//     //     _.last(notes).endTime = i * 0.5;
-//     //     } else if (seq[i] !== -2 && seq[i] !== -1) {
-//     //     if (notes.length && !_.last(notes).endTime) {
-//     //         _.last(notes).endTime = i * 0.5;
-//     //     }
-//     //     notes.push({
-//     //         pitch: seq[i],
-//     //         startTime: i * 0.5
-//     //     });
-//     //     }
-//     // }
-//     // if (notes.length && !_.last(notes).endTime) {
-//     //     _.last(notes).endTime = seq.length * 0.5;
-//     // }
-//     // noteEventList = [];
-//     // for (let i = 0; i < midiNotes.length; i+=2) {
-//     //     const noteEvent = new Uint8Array([midiNotes[i], midiNotes[i+1]]);
-//     //     noteEventList.push(noteEvent);
-//     // }
+maxApi.addHandler("generateSequence", () => __awaiter(void 0, void 0, void 0, function* () {
+    let generated = yield improvisor.generateNewSequence();
+    console.log("generated", generated);
+}));
 // 	// const notes = midiNotes.map(Tonal.Note.fromMidi);
 // 	// const possibleChords = Detect.chord(notes);
 //     // console.log(noteEventList)

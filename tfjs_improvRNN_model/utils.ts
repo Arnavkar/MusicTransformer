@@ -16,5 +16,5 @@ export interface TimeSettings {
     beatvalue: BeatValue
     measuredbeat:BeatDivision
     isDotted:boolean
-    bpm:number
+    qpm:number //quarter notes per minute
 }
