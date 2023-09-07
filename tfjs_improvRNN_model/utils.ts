@@ -1,6 +1,8 @@
+const maxApi = require("max-api");
+
 export type NumBeats = 2 | 3 | 4 | 5 | 6 | 7 | 8;
 export type BeatValue = 4 | 8;
-export type BeatDivision = 1 | 2 | 4 | 8 | 16 | 32;
+export type StepsPerQuarter = 1 | 2 | 3 | 4 | 8 | 16 | 32;
 //Array of strings representing chords
 export type ChordProg = Array<string>;
 
@@ -14,7 +16,10 @@ export interface Note {
 export interface TimeSettings {
     numbeats: NumBeats
     beatvalue: BeatValue
-    measuredbeat:BeatDivision
-    isDotted:boolean
+    stepsPerQuarter:StepsPerQuarter
     qpm:number //quarter notes per minute
+}
+
+export function logErrorToMax(error: any) {
+    maxApi.post(error, maxApi.POST_LEVELS.ERROR);
 }
