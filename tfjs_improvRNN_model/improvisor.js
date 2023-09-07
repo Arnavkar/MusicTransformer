@@ -39,16 +39,13 @@ const music_rnn_1 = require("@magenta/music/node/music_rnn");
 const _ = require('lodash');
 const Detect = require('tonal-detect');
 const Tonal = require('tonal');
-//require("@tensorflow/tfjs-node");
-//import { zeros } from "@tensorflow/tfjs-node";
-const utils_1 = require("./utils");
 class Improvisor {
     constructor(timeSettings) {
         this.model = this.loadModel('https://storage.googleapis.com/download.magenta.tensorflow.org/tfjs_checkpoints/music_rnn/chord_pitches_improv');
         this.timeSettings = timeSettings;
         this.currentChordProg = [];
         this.inputNotes = [];
-        this.quantizedNotes = core.sequences.createQuantizedNoteSequence();
+        this.quantizedInput = core.sequences.createQuantizedNoteSequence(this.timeSettings.stepsPerQuarter, this.timeSettings.qpm);
     }
     loadModel(path) {
         // Using the Improv RNN pretrained model from https://github.com/tensorflow/magenta/tree/master/magenta/models/improv_rnn
@@ -63,7 +60,6 @@ class Improvisor {
         this.currentChordProg = chordProg;
     }
     quantizeInputNotes() {
-        var _a, _b, _c;
         try {
             if (!this.model) {
                 throw new Error("Model not loaded!");
@@ -88,41 +84,57 @@ class Improvisor {
                 }
                 const unquantizedSequence = {
                     notes: notes,
-                    tempos: [{
+                    tempos: [
+                        {
                             time: 0,
-                            qpm: (_a = this.timeSettings) === null || _a === void 0 ? void 0 : _a.qpm
-                        }],
-                    totalTime: 60 / ((_b = this.timeSettings) === null || _b === void 0 ? void 0 : _b.qpm) * ((_c = this.timeSettings) === null || _c === void 0 ? void 0 : _c.numbeats),
+                            qpm: this.timeSettings.qpm
+                        }
+                    ],
+                    totalTime: 60 / this.timeSettings.qpm * this.timeSettings.numbeats,
                 };
-                let quantizedSequence = core.sequences.quantizeNoteSequence(unquantizedSequence, 4);
-                this.quantizedNotes = quantizedSequence;
+                let quantizedSequence = core.sequences.quantizeNoteSequence(unquantizedSequence, this.timeSettings.stepsPerQuarter);
+                this.quantizedInput = quantizedSequence;
             }
             else {
                 throw new Error("input notes could not be Quantized!");
             }
         }
         catch (error) {
-            (0, utils_1.logErrorToMax)(error);
+            console.log(error);
         }
+        3;
     }
     generateNewSequence() {
         return __awaiter(this, void 0, void 0, function* () {
-            let midiNotes = this.quantizedNotes.notes.map(n => n.pitch);
-            //console.log(midiNotes);
+            let midiNotes = this.quantizedInput.notes.map(n => n.pitch);
+            console.log("midinotes", midiNotes);
             const notes = midiNotes.map(Tonal.Note.fromMidi);
-            //console.log(notes);
+            console.log("notes", notes);
             const possibleChords = Detect.chord(notes);
-            //console.log(possibleChords);
+            console.log("chords", possibleChords);
+            let stepsToGenerate = this.getNumStepsToGenerate();
             try {
                 //Provide quantized note sequence, steps to generate, temperature and chord progression
-                return yield this.model.continueSequence(this.quantizedNotes, 16, 1.2, possibleChords);
+                return yield this.model.continueSequence(this.quantizedInput, stepsToGenerate, 1.2, possibleChords);
             }
             catch (error) {
-                (0, utils_1.logErrorToMax)(error);
+                console.log(error);
                 //return empty seqeunce
-                return core.sequences.createQuantizedNoteSequence();
+                return core.sequences.createQuantizedNoteSequence(this.timeSettings.stepsPerQuarter, this.timeSettings.qpm);
             }
         });
+    }
+    //Necessary because tempo is in quarter notes per minute
+    /*
+    eg.
+    3/4 with 12 steps per quarter = 36
+    6/8 has 6 beats, so each must have only 6 steps per quarter to have 36 steps
+    */
+    getNumStepsToGenerate() {
+        let numSteps = this.timeSettings.numbeats * this.timeSettings.stepsPerQuarter;
+        if (this.timeSettings.beatvalue == 8)
+            numSteps /= 2;
+        return numSteps;
     }
 }
 exports.Improvisor = Improvisor;

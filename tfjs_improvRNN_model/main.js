@@ -47,11 +47,12 @@ maxApi.addHandler("getNotes", (...midiNotes) => {
         notes.push(note);
     }
     improvisor.inputNotes = notes;
-    //console.log(improvisor.inputNotes)
+    console.log("INPUT NOTES–––––––––––––\n", improvisor.inputNotes);
     improvisor.quantizeInputNotes();
-    //console.log(improvisor.quantizedNotes);
+    console.log("QUANTIZED INPUT NOTES–––––––––––––\n", improvisor.quantizedInput);
 });
 maxApi.addHandler("generateSequence", () => __awaiter(void 0, void 0, void 0, function* () {
     let generated = yield improvisor.generateNewSequence();
-    console.log("generated", generated);
+    console.log("GENERATED NOTES–––––––––––––\n", generated);
+    maxApi.outlet(generated);
 }));

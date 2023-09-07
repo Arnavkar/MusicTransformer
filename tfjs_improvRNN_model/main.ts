@@ -38,12 +38,13 @@ maxApi.addHandler("getNotes", (...midiNotes: number[]) => { //need to use spread
         notes.push(note);
     }
     improvisor.inputNotes = notes;
-    //console.log(improvisor.inputNotes)
+    console.log("INPUT NOTES–––––––––––––\n",improvisor.inputNotes)
     improvisor.quantizeInputNotes();
-    //console.log(improvisor.quantizedNotes);
+    console.log("QUANTIZED INPUT NOTES–––––––––––––\n", improvisor.quantizedInput);
 });
 
 maxApi.addHandler("generateSequence", async() => {
     let generated = await improvisor.generateNewSequence();
-    console.log("generated", generated);
+    console.log("GENERATED NOTES–––––––––––––\n", generated)
+    maxApi.outlet(generated);
 })
