@@ -9,17 +9,16 @@ class EncoderLayer(Layer):
 
         self.model_dim = model_dim
         self.mha_layer = MultiHeadAttention(num_heads, model_dim,isRelative=False)
+        self.dropout1 = Dropout(dropout_rate)
+        #Not sure about this class yet
+        self.add_norm1 = AddNormalization()
         
         #Not sure about these dimensions
         self.feed_forward1 = Dense(self.model_dim, activation='relu')
         self.feed_forward2 = Dense(self.model_dim)
 
-        #Not sure about this class either
-        self.add_norm1 = AddNormalization()
-        self.add_norm2 = AddNormalization()
-
-        self.dropout1 = Dropout(dropout_rate)
         self.dropout2 = Dropout(dropout_rate)
+        self.add_norm2 = AddNormalization()
 
     def call(self, x, training, mask=None, **kwargs):
         output = self.mha_layer([x, x, x], mask)
