@@ -3,25 +3,24 @@ from tensorflow.keras.layers import Layer, Dense
 
 #test params
 num_heads = 8
-key_query_dim = 16 #number of dimensions for each token in the sequence
-value_dim = 16
+embedding_dim = 16 #number of dimensions for each token in the sequence
 model_dim = 512 
 batch_size = 16 #number of sequences in a batch
 seq_len = 5 #number of tokens in an input sequence
 
 class MultiHeadAttention(Layer):
-    def __init__(self, num_heads, key_query_dim, value_dim, model_dim, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, num_heads, embedding_dim, model_dim, isRelative=False, **kwargs):
+        super(MultiHeadAttention).__init__(**kwargs)
+        if isRelative: raise NotImplementedError("Relative attention not yet implemented")
         self.num_heads = num_heads
-        self.d_k_q = key_query_dim
-        self.d_v = value_dim
+        self.d_embed = embedding_dim
         self.d_model = model_dim
         #Data input must be divisible by the number of heads
         assert model_dim % self.num_heads == 0
 
-        self.W_query = Dense(self.d_k_q)
-        self.W_key = Dense(self.d_k_q)
-        self.W_value = Dense(self.d_v)
+        self.W_query = Dense(self.d_embed)
+        self.W_key = Dense(self.d_embed)
+        self.W_value = Dense(self.d_embed)
         self.W_out = Dense(self.d_model)
     
     def scaled_dot_product_attention(self, q, k, v, mask=None):
@@ -29,7 +28,7 @@ class MultiHeadAttention(Layer):
         
         #First multiple queries by keys to get similarity scores and normalize
         #TODO: ASK SVEN , HOW TO DETERMINE SHAPE OF MULTI DIMENSIONAL MATRIX MULTIPLICATION
-        attention_weights = tf.matmul(q, v, transpose_b=True) / tf.math.sqrt(tf.cast(self.d_k_q, tf.float32))
+        attention_weights = tf.matmul(q, v, transpose_b=True) / tf.math.sqrt(tf.cast(self.d_embed, tf.float32))
 
         #Mask if required (Eg. decoder layer), prevent attention from future outputs
         #Essentially multiply by an extremely small negative number to remove future values from softmax calculation
@@ -70,38 +69,36 @@ class MultiHeadAttention(Layer):
         '''
         q,k,v = inputs[0], inputs[1], inputs[2]
 
-        self.check_shape("base_query",q,(batch_size,seq_len,key_query_dim))
-        self.check_shape("base_key",k,(batch_size,seq_len,key_query_dim))
-        self.check_shape("base_value",v,(batch_size,seq_len,key_query_dim))
+        self.check_shape("base_query",q,(batch_size,seq_len,embedding_dim))
+        self.check_shape("base_key",k,(batch_size,seq_len,embedding_dim))
+        self.check_shape("base_value",v,(batch_size,seq_len,embedding_dim))
         #First pass through linear layers
         q,k,v = self.W_query(q), self.W_key(k), self.W_value(v)
 
         #Reshape to [batch_size, num_heads, seq_len, dim_per_head] for dot product attention
         q,k,v = self.reshape_tensor(q), self.reshape_tensor(k), self.reshape_tensor(v)
-        self.check_shape("reshaped_query",q,(key_query_dim,num_heads,seq_len,int(batch_size/num_heads)))
-        self.check_shape("reshaped_query",k,(key_query_dim,num_heads,seq_len,int(batch_size/num_heads)))
-        self.check_shape("reshaped_query",v,(value_dim,num_heads,seq_len,int(batch_size/num_heads)))
+        self.check_shape("reshaped_query",q,(embedding_dim,num_heads,seq_len,int(batch_size/num_heads)))
+        self.check_shape("reshaped_query",k,(embedding_dim,num_heads,seq_len,int(batch_size/num_heads)))
+        self.check_shape("reshaped_query",v,(embedding_dim,num_heads,seq_len,int(batch_size/num_heads)))
 
         #computer scaled dot product attention
         attention = self.scaled_dot_product_attention(q, k, v, mask)
         concat_attention = self.concat_heads(attention)
-        self.check_shape("attention",concat_attention,(batch_size,seq_len,value_dim))
+        self.check_shape("attention",concat_attention,(batch_size,seq_len,embedding_dim))
 
         #pass through final linear layer
         output = self.W_out(concat_attention)
         self.check_shape("output",output,(batch_size,seq_len,model_dim))
         return output
 
-
-    
     @staticmethod
     def check_shape(name,tensor,expectedshape):
         assert tensor.shape == expectedshape, f" expected shape {expectedshape}, {name} shape: {tensor.shape}"
 
 #test the layer
-queries = tf.random.uniform((batch_size, seq_len, key_query_dim))
-keys = tf.random.uniform((batch_size, seq_len, key_query_dim))
-values = tf.random.uniform((batch_size, seq_len, value_dim))
+queries = tf.random.uniform((batch_size, seq_len, embedding_dim))
+keys = tf.random.uniform((batch_size, seq_len, embedding_dim))
+values = tf.random.uniform((batch_size, seq_len, embedding_dim))
 
-attention_layer = MultiHeadAttention(num_heads, key_query_dim, value_dim, model_dim)
+attention_layer = MultiHeadAttention(num_heads, embedding_dim, model_dim)
 attention_layer([queries,keys,values])

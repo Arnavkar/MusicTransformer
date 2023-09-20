@@ -14,6 +14,8 @@ class CustomDataset:
             "validation": [],
             "test": []
         }
+        #self.partition_by_duration()
+        self.partition_by_filecount()
 
     def get_maestroJSON(self, path="./data/raw/maestro-v3.0.0/maestro-v3.0.0.json") -> list:
         with open(path) as f:
@@ -79,17 +81,41 @@ class CustomDataset:
 
         data = [self.extract_sequence(file, length) for file in files]
 
-        #Possibly convert to tensor directly?
         return np.array(data)
 
-    # def extract_sequence(self,file, length):
-    #     with open(file, 'rb') as f:
-    #         encoded_midi_data = pickle.load(f)
-        
-    #     if length == None:
-    #         return encoded_midi_data
-    #     else:
+    def extract_sequence(self,file, max_seq):
+        #batch is still in the encoded midi format, not yet, one hot encoded
+        with open(file, 'rb') as f:
+            encoded_midi_data = pickle.load(f)
+
+        sequences = []
+        if max_length <= len(encoded_midi_data):
+            num_seq = len(encoded_midi_data) // max_seq
+
+    #TODO: TALK ABOUT WITH SVEN, WHY ONLY GRAB ONE SEQUENCE FROM THE MIDI FILE - also look below
+    def _get_seq(self, fname, max_length=None):
+        with open(fname, 'rb') as f:
+            data = pickle.load(f)
+        if max_length is not None:
+            if max_length <= len(data):
+                start = random.randrange(0,len(data) - max_length)
+                data = data[start:start + max_length]
+            else:
+                data = np.append(data, par.token_eos)
+                while len(data) < max_length:
+                    data = np.append(data, par.pad_token)
+        return data
+
 
         
 dataset = CustomDataset()
-dataset.partition_by_filecount()
+numfiles = len(dataset.fileDict)
+total_events = 0
+
+for file in dataset.fileDict.values():
+    with open(file, 'rb') as f:
+        encoded_midi_data = pickle.load(f)
+        total_events += len(encoded_midi_data)
+
+avg_event = total_events / numfiles
+print(f"Average number of events per file: {avg_event}")
