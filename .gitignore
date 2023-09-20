@@ -5,3 +5,4 @@ node_modules
 data/
 MusicTransformer-tensorflow2.0/
 __pycache__/
+.vscode/
