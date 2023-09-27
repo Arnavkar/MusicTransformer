@@ -4,6 +4,7 @@ import random
 import itertools
 import numpy as np
 import pickle
+import constants as c
 
 class CustomDataset:
     def __init__(self) -> None:
@@ -83,17 +84,7 @@ class CustomDataset:
 
         return np.array(data)
 
-    def extract_sequence(self,file, max_seq):
-        #batch is still in the encoded midi format, not yet, one hot encoded
-        with open(file, 'rb') as f:
-            encoded_midi_data = pickle.load(f)
-
-        sequences = []
-        if max_length <= len(encoded_midi_data):
-            num_seq = len(encoded_midi_data) // max_seq
-
-    #TODO: TALK ABOUT WITH SVEN, WHY ONLY GRAB ONE SEQUENCE FROM THE MIDI FILE - also look below
-    def _get_seq(self, fname, max_length=None):
+    def extract_sequence(self, fname, max_length=None):
         with open(fname, 'rb') as f:
             data = pickle.load(f)
         if max_length is not None:
@@ -101,21 +92,21 @@ class CustomDataset:
                 start = random.randrange(0,len(data) - max_length)
                 data = data[start:start + max_length]
             else:
-                data = np.append(data, par.token_eos)
+                #concat EOS tokens to the end of the sequence
+                data = np.append(data, c.token_eos)
                 while len(data) < max_length:
-                    data = np.append(data, par.pad_token)
+                    data = np.append(data, c.pad_token)
         return data
 
+if __name__ == "__main__":
+    dataset = CustomDataset()
+    numfiles = len(dataset.fileDict)
+    total_events = 0
 
-        
-dataset = CustomDataset()
-numfiles = len(dataset.fileDict)
-total_events = 0
+    for file in dataset.fileDict.values():
+        with open(file, 'rb') as f:
+            encoded_midi_data = pickle.load(f)
+            total_events += len(encoded_midi_data)
 
-for file in dataset.fileDict.values():
-    with open(file, 'rb') as f:
-        encoded_midi_data = pickle.load(f)
-        total_events += len(encoded_midi_data)
-
-avg_event = total_events / numfiles
-print(f"Average number of events per file: {avg_event}")
+    avg_event = total_events / numfiles
+    print(f"Average number of events per file: {avg_event}")
