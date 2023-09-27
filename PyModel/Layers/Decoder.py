@@ -1,14 +1,21 @@
+import sys
+# appending Layer path
+sys.path.append('Layers')
+
 import tensorflow as tf
-from tensorflow.keras.layers import Layer, Dropout
-from MultiHeadAttentionLayer import MultiHeadAttention
-from FeedForwardLayer import FeedForward
-from AddNormalizationLayer import AddNormalization
-from PositionalEncodingLayer import PositionEmbeddingFixedWeights
-from utils import check_shape
+from tensorflow.keras.layers import Layer, Dropout, Input
+from tensorflow.keras.models import Model
+from Layers.MultiHeadAttentionLayer import MultiHeadAttention
+from Layers.FeedForwardLayer import FeedForward
+from Layers.AddNormalizationLayer import AddNormalization
+from Layers.PositionalEncodingLayer import PositionEmbeddingFixedWeights
+from Layers.utils import check_shape
 
 class DecoderLayer(Layer):
-    def __init__(self, num_heads, embedding_dim, model_dim, feed_forward_dim, dropout_rate, **kwargs):
+    def __init__(self, seq_len, num_heads, embedding_dim, model_dim, feed_forward_dim, dropout_rate, **kwargs):
         super().__init__(**kwargs)
+        #to build graph
+        self.build(input_shape=[None, seq_len, model_dim])
 
         self.model_dim = model_dim
         self.masked_mha_layer = MultiHeadAttention(num_heads,embedding_dim,  model_dim)
@@ -25,6 +32,10 @@ class DecoderLayer(Layer):
         self.dropout3 = Dropout(dropout_rate)
         self.add_norm3 = AddNormalization()
 
+    def build_graph(self):
+        input_layer = Input(shape=(self.sequence_length, self.d_model))
+        return Model(inputs=[input_layer], outputs=self.call(input_layer, None, True))
+
     def call(self, x, encoder_output, lookahead_mask, padding_mask, training, **kwargs):
         attention_output1 = self.masked_mha_layer([x, x, x], lookahead_mask)
         attention_output1 = self.dropout1(attention_output1, training=training)
@@ -37,7 +48,6 @@ class DecoderLayer(Layer):
         ff_output = self.feed_forward(addnorm_output2)
         ff_output = self.dropout3(ff_output, training=training)
         final = self.add_norm3(addnorm_output2, ff_output)
-        
         return final
     
 class Decoder(Layer):
@@ -45,7 +55,14 @@ class Decoder(Layer):
         super().__init__(**kwargs)
         self.positional_encoding = PositionEmbeddingFixedWeights(seq_len, vocab_size, model_dim)
         self.dropout = Dropout(dropout_rate)
-        self.decoder_layers = [DecoderLayer(num_heads, embedding_dim, model_dim, feed_forward_dim, dropout_rate) for _ in range(num_layers)]
+        self.decoder_layers = [
+            DecoderLayer(
+                seq_len,
+                num_heads,
+                embedding_dim, 
+                model_dim, 
+                feed_forward_dim, 
+                dropout_rate) for _ in range(num_layers)]
 
     def call(self, input, encoder_output, lookahead_mask, padding_mask, training):
         positional_encoding_output = self.positional_encoding(input)

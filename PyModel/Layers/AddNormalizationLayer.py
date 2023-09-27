@@ -1,6 +1,7 @@
+
 from tensorflow.keras.layers import Layer, LayerNormalization
 import tensorflow as tf
-from utils import check_shape
+from Layers.utils import check_shape
 
 class AddNormalization(Layer):
     def __init__(self, **kwargs):

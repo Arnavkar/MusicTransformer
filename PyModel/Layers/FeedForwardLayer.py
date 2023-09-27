@@ -1,5 +1,9 @@
+import sys
+# appending Layer path
+sys.path.append('Layers')
+
 from tensorflow.keras.layers import Layer, Dense
-from utils import check_shape
+from Layers.utils import check_shape
     
 class FeedForward(Layer):
     def __init__(self, d_in, d_out, **kwargs):

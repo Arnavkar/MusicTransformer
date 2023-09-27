@@ -1,7 +1,11 @@
+import sys
+# appending Layer path
+sys.path.append('Layers')
+
 from tensorflow.keras.layers import Layer, Embedding
 import numpy as np
 import tensorflow as tf
-from utils import check_shape
+from Layers.utils import check_shape
 
 #Positional encoding as specified in the paper "Attention is all you need"
 #Embedding layer is used to convert integer values into vectors
@@ -59,3 +63,4 @@ if __name__ == "__main__":
     positional_encoding_output = embedding_layer(test_tensor)
     #In this case, 2,5,6 -> 2 sequences, 5 integers each, where each integer is now spread into a vector of 6 elements
     assert positional_encoding_output.shape == (test_tensor.shape[0],test_tensor.shape[1],output_length)
+    

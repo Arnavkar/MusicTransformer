@@ -1,6 +1,10 @@
+import sys
+# appending Layer path
+sys.path.append('Layers')
+
 import tensorflow as tf
 from tensorflow.keras.layers import Layer, Dense
-from utils import check_shape
+from Layers.utils import check_shape
 
 class MultiHeadAttention(Layer):
     def __init__(self, num_heads, embedding_dim, model_dim, isRelative=False, **kwargs):
