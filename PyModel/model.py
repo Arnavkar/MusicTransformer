@@ -3,7 +3,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Dense
 from Layers.Encoder import Encoder
 from Layers.Decoder import Decoder
-from Layers.utils import *
+from Layers.utils import padding_mask, lookahead_mask
 
 class TransformerModel(Model):
     def __init__(self,enc_vocab_size,dec_vocab_size,enc_seq_len,dec_seq_len,num_heads,embedding_dim,model_dim,feed_forward_dim,dropout_rate,num_layers,**kwargs):
@@ -33,11 +33,11 @@ class TransformerModel(Model):
         self.dense = Dense(dec_vocab_size)
     
     def call(self, encoder_input, decoder_input, training):
-        enc_padding_mask = padding_mask(encoder_input)
-        lookahead_mask = tf.maximum(padding_mask(decoder_input),lookahead_mask(decoder_input.shape[1]))
+        padding = padding_mask(encoder_input)
+        lookahead = tf.maximum(padding_mask(decoder_input),lookahead_mask(decoder_input.shape[1]))
 
-        encoder_output = self.encoder(encoder_input, enc_padding_mask, training)
-        decoder_output = self.decoder(decoder_input, encoder_output, lookahead_mask, enc_padding_mask, training)
+        encoder_output = self.encoder(encoder_input, padding, training)
+        decoder_output = self.decoder(decoder_input, encoder_output, lookahead, padding, training)
         output = self.dense(decoder_output)
         return output
 
