@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 def check_shape(name,tensor,expectedshape):
-        assert tensor.shape == expectedshape, f" expected shape {expectedshape}, {name} shape: {tensor.shape}"
+        assert tensor.shape == expectedshape, f" {name} expected shape {expectedshape}, shape: {tensor.shape}"
 
 def padding_mask(input):
         mask = tf.math.equal(input,0)
