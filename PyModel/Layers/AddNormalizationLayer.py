@@ -8,7 +8,7 @@ from Layers.utils import check_shape
 
 class AddNormalization(Layer):
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        super(AddNormalization, self).__init__(**kwargs)
         self.layer_norm = LayerNormalization()  # Layer normalization layer
     
     def call(self, x, sublayer_x):
