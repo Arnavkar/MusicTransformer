@@ -95,11 +95,12 @@ class MultiHeadAttention(Layer):
 
         return output
 
-#test the layer
-queries = tf.random.uniform((p.batch_size, p.seq_len, p.embedding_dim))
-keys = tf.random.uniform((p.batch_size, p.seq_len, p.embedding_dim))
-values = tf.random.uniform((p.batch_size, p.seq_len, p.embedding_dim))
+if __name__ == "__main__":
+    #test the layer
+    queries = tf.random.uniform((p.batch_size, p.seq_len, p.embedding_dim))
+    keys = tf.random.uniform((p.batch_size, p.seq_len, p.embedding_dim))
+    values = tf.random.uniform((p.batch_size, p.seq_len, p.embedding_dim))
 
-attention_layer = MultiHeadAttention(p)
-#Expect shape to be 64, 5, 512
-check_shape("test",attention_layer([queries,keys,values]),(p.batch_size,p.seq_len,p.model_dim))
+    attention_layer = MultiHeadAttention(p)
+    #Expect shape to be 64, 5, 512
+    check_shape("test",attention_layer([queries,keys,values]),(p.batch_size,p.seq_len,p.model_dim))

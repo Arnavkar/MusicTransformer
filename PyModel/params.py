@@ -26,7 +26,13 @@ baseline_test_params= {
     "encoder_vocab_size" : 20,
     "num_encoder_layers" : 6,
     "decoder_vocab_size" : 20,
-    "num_decoder_layers" : 6
+    "num_decoder_layers" : 6,
+    "epochs":10,
+    "beta_1":0.9,
+    "beta_2":0.98,
+    "epsilon":1e-9,
+    "encoder_seq_len": 5,
+    "decoder_seq_len": 5
 }
 
 class Params:
@@ -42,4 +48,31 @@ class Params:
         self.num_encoder_layers = param_dict["num_encoder_layers"]
         self.decoder_vocab_size = param_dict["decoder_vocab_size"]
         self.num_decoder_layers = param_dict["num_decoder_layers"]
+        self.epochs = param_dict["epochs"]
+        self.beta_1 = param_dict["beta_1"]
+        self.beta_2 = param_dict["beta_2"]
+        self.epsilon = param_dict["epsilon"]
+        self.encoder_seq_len = param_dict["encoder_seq_len"]
+        self.decoder_seq_len = param_dict["decoder_seq_len"]
+
+    def print_params(self):
+        print("num_heads: ", self.num_heads)
+        print("embedding_dim: ", self.embedding_dim)
+        print("model_dim: ", self.model_dim)
+        print("batch_size: ", self.batch_size)
+        print("seq_len: ", self.seq_len)
+        print("feed_forward_dim: ", self.feed_forward_dim)
+        print("dropout_rate: ", self.dropout_rate)
+        print("encoder_vocab_size: ", self.encoder_vocab_size)
+        print("num_encoder_layers: ", self.num_encoder_layers)
+        print("decoder_vocab_size: ", self.decoder_vocab_size)
+        print("num_decoder_layers: ", self.num_decoder_layers)
+        print("epochs: ", self.epochs)
+        print("beta_1: ", self.beta_1)
+        print("beta_2: ", self.beta_2)
+        print("epsilon: ", self.epsilon)
+        print("encoder_seq_len: ", self.encoder_seq_len)
+        print("decoder_seq_len: ", self.decoder_seq_len)
+
+
         

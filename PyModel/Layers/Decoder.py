@@ -12,12 +12,12 @@ from Layers.PositionalEncodingLayer import PositionEmbeddingFixedWeights
 from Layers.utils import check_shape
 from params import baseline_test_params, Params
 
-class DecoderLayer(Layer):
+class DecoderLayer(Model):
     def __init__(self, p:Params, **kwargs):
         super(DecoderLayer,self).__init__(**kwargs)
         #to build graph
-        self.build(input_shape=[None, p.seq_len, p.model_dim])
-        self.seq_len = p.seq_len
+        # self.build(input_shape=[None, p.seq_len, p.model_dim])
+        self.seq_len = p.decoder_seq_len
         self.model_dim = p.model_dim
 
         self.masked_mha_layer = MultiHeadAttention(p,isRelative=False)
@@ -34,9 +34,9 @@ class DecoderLayer(Layer):
         self.dropout3 = Dropout(p.dropout_rate)
         self.add_norm3 = AddNormalization()
 
-    def build_graph(self):
-        input_layer = Input(shape=(self.seq_len, self.model_dim))
-        return Model(inputs=[input_layer], outputs=self.call(input_layer, None, None, None, True))
+    # def build_graph(self):
+    #     input_layer = Input(shape=(self.seq_len, self.model_dim))
+    #     return Model(inputs=[input_layer], outputs=self.call(input_layer, None, None, None, True))
 
     def call(self, x, encoder_output, lookahead_mask, padding_mask, training):
         attention_output1 = self.masked_mha_layer([x, x, x], lookahead_mask)
@@ -52,29 +52,38 @@ class DecoderLayer(Layer):
         final = self.add_norm3(addnorm_output2, ff_output)
         return final
     
-class Decoder(Layer):
+class Decoder(Model):
     def __init__(self,p:Params, **kwargs):
         super().__init__(**kwargs)
-        self.positional_encoding = PositionEmbeddingFixedWeights(p.seq_len, p.decoder_vocab_size, p.model_dim)
+        self.positional_encoding = PositionEmbeddingFixedWeights(p.decoder_seq_len, p.decoder_vocab_size, p.model_dim)
         self.dropout = Dropout(p.dropout_rate)
         self.decoder_layers = [
             DecoderLayer(p) for _ in range(p.num_decoder_layers)]
 
-    def call(self, input, encoder_output, lookahead_mask, padding_mask, training):
-        positional_encoding_output = self.positional_encoding(input)
+    def call(self, x, encoder_output, lookahead_mask, padding_mask, training):
+        positional_encoding_output = self.positional_encoding(x)
         positional_encoding_output = self.dropout(positional_encoding_output, training=training)
 
         for layer in self.decoder_layers:
-            output = layer(positional_encoding_output, encoder_output, lookahead_mask, padding_mask, training)
-        
+            output = layer(         
+                positional_encoding_output,
+                encoder_output=encoder_output,
+                lookahead_mask=lookahead_mask,
+                padding_mask=padding_mask,
+                training = training 
+            )        
         return output
 
 if __name__ == "__main__":
     p = Params(baseline_test_params)
     input_seq = tf.random.uniform((p.batch_size, p.seq_len))
+    decoder_layer_input_seq = tf.random.uniform((p.batch_size, p.seq_len,p.model_dim))
     enc_output = tf.random.uniform((p.batch_size, p.seq_len,p.model_dim))
 
     decoder = Decoder(p)
-    decoderLayer = DecoderLayer(p)
-    decoderLayer.build_graph().summary()
-    print(decoder(input_seq, enc_output, None, True))
+    decoder(input_seq, enc_output, None, None, True)
+    decoder.summary()
+
+    decoder_layer = DecoderLayer(p)
+    decoder_layer(decoder_layer_input_seq, enc_output, None, None, True)
+    decoder_layer.summary()
