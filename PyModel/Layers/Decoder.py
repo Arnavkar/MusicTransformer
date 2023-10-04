@@ -1,6 +1,6 @@
 import sys
 # appending Layer path
-sys.path.append('Layers')
+sys.path.append('./PyModel')
 
 import tensorflow as tf
 from tensorflow.keras.layers import Layer, Dropout, Input
@@ -10,33 +10,35 @@ from Layers.FeedForwardLayer import FeedForward
 from Layers.AddNormalizationLayer import AddNormalization
 from Layers.PositionalEncodingLayer import PositionEmbeddingFixedWeights
 from Layers.utils import check_shape
+from params import baseline_test_params, Params
 
 class DecoderLayer(Layer):
-    def __init__(self, seq_len, num_heads, embedding_dim, model_dim, feed_forward_dim, dropout_rate, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, p:Params, **kwargs):
+        super(DecoderLayer,self).__init__(**kwargs)
         #to build graph
-        self.build(input_shape=[None, seq_len, model_dim])
+        self.build(input_shape=[None, p.seq_len, p.model_dim])
+        self.seq_len = p.seq_len
+        self.model_dim = p.model_dim
 
-        self.model_dim = model_dim
-        self.masked_mha_layer = MultiHeadAttention(num_heads,embedding_dim,  model_dim)
-        self.dropout1 = Dropout(dropout_rate)
+        self.masked_mha_layer = MultiHeadAttention(p,isRelative=False)
+        self.dropout1 = Dropout(p.dropout_rate)
         self.add_norm1 = AddNormalization()
 
-        self.mha_layer = MultiHeadAttention(num_heads,embedding_dim, model_dim)
-        self.dropout2 = Dropout(dropout_rate)
+        self.mha_layer = MultiHeadAttention(p,isRelative=False)
+        self.dropout2 = Dropout(p.dropout_rate)
         self.add_norm2 = AddNormalization()
         
        #Not sure about these dimensions yet
-        self.feed_forward = FeedForward(feed_forward_dim, model_dim)
+        self.feed_forward = FeedForward(p.feed_forward_dim, p.model_dim)
 
-        self.dropout3 = Dropout(dropout_rate)
+        self.dropout3 = Dropout(p.dropout_rate)
         self.add_norm3 = AddNormalization()
 
     def build_graph(self):
-        input_layer = Input(shape=(self.sequence_length, self.d_model))
-        return Model(inputs=[input_layer], outputs=self.call(input_layer, None, True))
+        input_layer = Input(shape=(self.seq_len, self.model_dim))
+        return Model(inputs=[input_layer], outputs=self.call(input_layer, None, None, None, True))
 
-    def call(self, x, encoder_output, lookahead_mask, padding_mask, training, **kwargs):
+    def call(self, x, encoder_output, lookahead_mask, padding_mask, training):
         attention_output1 = self.masked_mha_layer([x, x, x], lookahead_mask)
         attention_output1 = self.dropout1(attention_output1, training=training)
         addnorm_output1 = self.add_norm1(x, attention_output1)
@@ -51,18 +53,12 @@ class DecoderLayer(Layer):
         return final
     
 class Decoder(Layer):
-    def __init__(self, vocab_size, seq_len, num_heads, embedding_dim, model_dim, feed_forward_dim, dropout_rate, num_layers, **kwargs):
+    def __init__(self,p:Params, **kwargs):
         super().__init__(**kwargs)
-        self.positional_encoding = PositionEmbeddingFixedWeights(seq_len, vocab_size, model_dim)
-        self.dropout = Dropout(dropout_rate)
+        self.positional_encoding = PositionEmbeddingFixedWeights(p.seq_len, p.decoder_vocab_size, p.model_dim)
+        self.dropout = Dropout(p.dropout_rate)
         self.decoder_layers = [
-            DecoderLayer(
-                seq_len,
-                num_heads,
-                embedding_dim, 
-                model_dim, 
-                feed_forward_dim, 
-                dropout_rate) for _ in range(num_layers)]
+            DecoderLayer(p) for _ in range(p.num_decoder_layers)]
 
     def call(self, input, encoder_output, lookahead_mask, padding_mask, training):
         positional_encoding_output = self.positional_encoding(input)
@@ -74,29 +70,11 @@ class Decoder(Layer):
         return output
 
 if __name__ == "__main__":
-    num_heads = 8
-    embedding_dim = 64 #number of dimensions for each token in the sequence 
-    model_dim = 512
-    feed_forward_dim = 2048
-    num_decoder_layers = 6
+    p = Params(baseline_test_params)
+    input_seq = tf.random.uniform((p.batch_size, p.seq_len))
+    enc_output = tf.random.uniform((p.batch_size, p.seq_len,p.model_dim))
 
-    batch_size = 64 #number of sequences in a batch
-    dropout_rate = 0.1
-
-    dec_vocab_size = 20 
-    input_seq_len = 5
-
-    input_seq = tf.random.uniform((batch_size, input_seq_len))
-    enc_output = tf.random.uniform((batch_size, input_seq_len,model_dim))
-
-    decoder = Decoder(
-        vocab_size = dec_vocab_size,
-        seq_len = input_seq_len,
-        num_heads = num_heads,
-        embedding_dim = embedding_dim,
-        model_dim = model_dim,
-        feed_forward_dim = feed_forward_dim,
-        num_layers = num_decoder_layers,
-        dropout_rate = dropout_rate
-    )
+    decoder = Decoder(p)
+    decoderLayer = DecoderLayer(p)
+    decoderLayer.build_graph().summary()
     print(decoder(input_seq, enc_output, None, True))

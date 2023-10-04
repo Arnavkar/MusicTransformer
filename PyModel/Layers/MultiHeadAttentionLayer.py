@@ -54,10 +54,10 @@ class MultiHeadAttention(Layer):
         10 elements >  2 sequences of 5 elements, per batch
         '''
         tensor = tf.reshape(tensor, (tf.shape(tensor)[0], tf.shape(tensor)[1], self.num_heads, -1))
-        check_shape("reshaped_tensor",tensor,(p.embedding_dim,p.seq_len,p.num_heads,int(p.batch_size/p.num_heads)))
+        # check_shape("reshaped_tensor",tensor,(p.embedding_dim,p.seq_len,p.num_heads,int(p.batch_size/p.num_heads)))
 
         tensor = tf.transpose(tensor, perm=[0,2,1,3])
-        check_shape("transposed_tensor",tensor,(p.embedding_dim,p.num_heads,p.seq_len,int(p.batch_size/p.num_heads)))
+        # check_shape("transposed_tensor",tensor,(p.embedding_dim,p.num_heads,p.seq_len,int(p.batch_size/p.num_heads)))
         
         return tensor
     
@@ -73,25 +73,25 @@ class MultiHeadAttention(Layer):
 
         '''
         q,k,v = inputs[0], inputs[1], inputs[2]
-        for tensor in [q,k,v]: 
-            check_shape("input_tensor",tensor,(p.batch_size,p.seq_len,p.embedding_dim))
+        # for tensor in [q,k,v]: 
+        #     check_shape("input_tensor",tensor,(p.batch_size,p.seq_len,p.embedding_dim))
 
         #First pass through linear layers
         q,k,v = self.W_query(q), self.W_key(k), self.W_value(v)
 
         #Reshape to [batch_size, num_heads, seq_len, dim_per_head] for dot product attention
         q,k,v = self.reshape_tensor(q), self.reshape_tensor(k), self.reshape_tensor(v)
-        for tensor in [q,k,v]: 
-            check_shape("reshaped_query", tensor,(p.embedding_dim,p.num_heads,p.seq_len,int(p.batch_size/p.num_heads)))
+        # for tensor in [q,k,v]: 
+        #     check_shape("reshaped_query", tensor,(p.embedding_dim,p.num_heads,p.seq_len,int(p.batch_size/p.num_heads)))
 
         #computer scaled dot product attention
         attention = self.scaled_dot_product_attention(q, k, v, mask)
         concat_attention = self.concat_heads(attention)
-        check_shape("attention",concat_attention,(p.batch_size,p.seq_len,p.embedding_dim))
+        # check_shape("attention",concat_attention,(p.batch_size,p.seq_len,p.embedding_dim))
 
         #pass through final linear layer
         output = self.W_out(concat_attention)
-        check_shape("output",output,(p.batch_size,p.seq_len,p.model_dim))
+        # check_shape("output",output,(p.batch_size,p.seq_len,p.model_dim))
 
         return output
 

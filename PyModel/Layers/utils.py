@@ -3,11 +3,13 @@ import tensorflow as tf
 def check_shape(name,tensor,expectedshape):
         assert tensor.shape == expectedshape, f" {name} expected shape {expectedshape}, shape: {tensor.shape}"
 
+
 def padding_mask(input):
         mask = tf.math.equal(input,0)
         mask = tf.cast(mask,tf.float32)
         #NOT SURE
         return mask[:,tf.newaxis,tf.newaxis,:]
+
 
 def lookahead_mask(shape):
         # Mask out future entries by marking them with a 1.0

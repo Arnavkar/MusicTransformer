@@ -1,1 +1,3 @@
-ssh arnav@coglab-5 -p Bard901425784h
+ssh arnav@coglab-5
+
+#Bard901425784

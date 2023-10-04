@@ -89,7 +89,6 @@ beta_2 = 0.98
 epsilon = 1e-9
 dropout_rate = 0.1
  
- 
 # Implementing a learning rate scheduler
 class LRScheduler(LearningRateSchedule):
     def __init__(self, d_model, warmup_steps=4000, **kwargs):
@@ -101,7 +100,7 @@ class LRScheduler(LearningRateSchedule):
     def __call__(self, step_num):
         print(step_num)
         # Linearly increasing the learning rate for the first warmup_steps, and decreasing it thereafter
-        arg1 = step_num ** -0.5, tf.int64
+        arg1 = step_num ** -0.5
         arg2 = step_num * (self.warmup_steps ** -1.5)
  
         return tf.cast((self.d_model ** -0.5) * math.minimum(arg1, arg2), tf.float32)
@@ -196,6 +195,12 @@ def train_step(encoder_input, decoder_input, decoder_output):
  
  
 for epoch in range(epochs):
+
+    variables = tf.compat.v1.trainable_variables(
+        scope=None
+    )
+
+    print(variables)
  
     train_loss.reset_states()
     train_accuracy.reset_states()

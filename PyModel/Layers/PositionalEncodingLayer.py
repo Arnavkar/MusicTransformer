@@ -1,6 +1,6 @@
 import sys
 # appending Layer path
-sys.path.append('Layers')
+sys.path.append('./PyModel')
 
 from tensorflow.keras.layers import Layer, Embedding
 import numpy as np
@@ -11,10 +11,10 @@ from Layers.utils import check_shape
 #Embedding layer is used to convert integer values into vectors
 #In this case we use pre-defined weights
 class PositionEmbeddingFixedWeights(Layer):
-    def __init__(self, sequence_length, vocab_size, output_dim, **kwargs):
+    def __init__(self, seq_len, vocab_size, output_dim, **kwargs):
         super(PositionEmbeddingFixedWeights, self).__init__(**kwargs)
-        input_embedding_matrix = self.get_position_encoding(vocab_size, output_dim)   
-        position_embedding_matrix = self.get_position_encoding(sequence_length, output_dim)    
+        input_embedding_matrix = self.get_positional_encoding(vocab_size, output_dim)   
+        position_embedding_matrix = self.get_positional_encoding(seq_len, output_dim)    
 
         #trainiable must be false since we are using pre-defined weights
         self.input_embedding_layer = Embedding(
@@ -23,7 +23,7 @@ class PositionEmbeddingFixedWeights(Layer):
             trainable=False
         )
         self.position_embedding_layer = Embedding(
-            input_dim=sequence_length, output_dim=output_dim,
+            input_dim=seq_len, output_dim=output_dim,
             weights=[position_embedding_matrix],
             trainable=False
         )
@@ -36,7 +36,7 @@ class PositionEmbeddingFixedWeights(Layer):
     # n user defined scalar, 10000 in the paper
     # i = dimension index, where i < d/2
     #from https://machinelearningmastery.com/a-gentle-introduction-to-positional-encoding-in-transformer-models-part-1/
-    def get_position_encoding(self, seq_len, d, n=10000):
+    def get_positional_encoding(self, seq_len, d, n=10000):
         #create the positional matrix
         P = np.zeros((seq_len, d))
         for k in range(seq_len):
@@ -62,5 +62,7 @@ if __name__ == "__main__":
                                             vocab_size, output_length)
     positional_encoding_output = embedding_layer(test_tensor)
     #In this case, 2,5,6 -> 2 sequences, 5 integers each, where each integer is now spread into a vector of 6 elements
-    assert positional_encoding_output.shape == (test_tensor.shape[0],test_tensor.shape[1],output_length)
+    check_shape("positional encoding",
+                positional_encoding_output,
+                (test_tensor.shape[0],test_tensor.shape[1],output_length))
     

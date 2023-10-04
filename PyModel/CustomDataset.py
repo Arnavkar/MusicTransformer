@@ -4,7 +4,7 @@ import random
 import itertools
 import numpy as np
 import pickle
-import constants as c
+import PyModel.params as c
 
 class CustomDataset:
     def __init__(self) -> None:

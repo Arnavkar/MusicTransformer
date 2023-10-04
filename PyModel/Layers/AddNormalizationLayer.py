@@ -12,8 +12,8 @@ class AddNormalization(Layer):
         self.layer_norm = LayerNormalization()  # Layer normalization layer
     
     def call(self, x, sublayer_x):
-        x += sublayer_x       
-        return self.layer_norm(x)
+        add = x + sublayer_x     
+        return self.layer_norm(add)
     
 if __name__ == "__main__":
     test_tensor = tf.constant([[1,3,4,2,0]])
