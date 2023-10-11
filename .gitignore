@@ -2,7 +2,9 @@ Matevz_code/
 tfjs-examples/
 n4m-examples/
 node_modules
-data/
+
+PyModel/data/raw/
+PyModel/data/processed/
 MusicTransformer-tensorflow2.0/
 __pycache__/
 .vscode/
