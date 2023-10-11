@@ -1,4 +1,4 @@
-import midi_processor.processor as sequence
+import midi_neural_processor.processor as sequence
 
 #Why this embedding size??
 # Look at https://saturncloud.io/blog/what-are-embeddings-in-pytorch-and-how-to-use-them/
