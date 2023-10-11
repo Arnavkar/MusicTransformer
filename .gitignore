@@ -6,3 +6,4 @@ data/
 MusicTransformer-tensorflow2.0/
 __pycache__/
 .vscode/
+checkpoints/

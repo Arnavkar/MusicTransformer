@@ -87,3 +87,6 @@ if __name__ == "__main__":
     decoder_layer = DecoderLayer(p)
     decoder_layer(decoder_layer_input_seq, enc_output, None, None, True)
     decoder_layer.summary()
+
+
+#One shot, Two shot , 3 Shot training 

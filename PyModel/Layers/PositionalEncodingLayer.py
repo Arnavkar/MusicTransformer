@@ -27,6 +27,8 @@ class PositionEmbeddingFixedWeights(Layer):
             weights=[position_embedding_matrix],
             trainable=False
         )
+
+    #TODO: How did the embedding layer for the output get created? 
     
     #Based on "attention is all you need"
     #Given a input sequence of size L

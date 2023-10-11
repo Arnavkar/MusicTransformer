@@ -77,12 +77,16 @@ if __name__ == "__main__":
     input_seq = tf.random.uniform((p.batch_size, p.seq_len))
     encoder_layer_input_seq = tf.random.uniform((p.batch_size, p.seq_len,p.model_dim))
 
+    encoderLayer = EncoderLayer(p)
+    output = encoderLayer(encoder_layer_input_seq, None, True)
+    print(f'Encoder Layer output shape: {output.shape}')
+    encoderLayer.summary()
+
     encoder = Encoder(p)
-    encoder(input_seq, None, True)
+    output = encoder(input_seq, None, True)
+    print(f'Encoder output shape: {output.shape}')
     encoder.summary()
 
-    encoderLayer = EncoderLayer(p)
-    encoderLayer(encoder_layer_input_seq, None, True)
-    encoderLayer.summary()
+    
     #None is the mask, True is the flag for training which only applies droput when flag value is set to true
     

@@ -74,7 +74,7 @@ def train_step(encoder_input, decoder_input, decoder_output):
     with GradientTape() as tape:
  
         # Run the forward pass of the model to generate a prediction
-        prediction = transformer(encoder_input, decoder_input, training=True)
+        prediction = transformer(encoder_input, decoder_input, training=False)
  
         # Compute the training loss
         loss = loss_fcn(decoder_output, prediction)

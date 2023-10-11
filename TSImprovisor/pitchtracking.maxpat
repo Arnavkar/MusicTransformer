@@ -40,12 +40,23 @@
 		"assistshowspatchername" : 0,
 		"boxes" : [ 			{
 				"box" : 				{
+					"id" : "obj-10",
+					"maxclass" : "comment",
+					"numinlets" : 1,
+					"numoutlets" : 0,
+					"patching_rect" : [ 336.0, 144.0, 150.0, 20.0 ],
+					"text" : "audio input"
+				}
+
+			}
+, 			{
+				"box" : 				{
 					"id" : "obj-108",
 					"maxclass" : "comment",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 464.0, 560.5, 150.0, 20.0 ],
-					"text" : "note duration?"
+					"patching_rect" : [ 448.0, 565.5, 80.0, 20.0 ],
+					"text" : "note duration"
 				}
 
 			}
@@ -53,7 +64,7 @@
 				"box" : 				{
 					"comment" : "",
 					"id" : "obj-106",
-					"index" : 4,
+					"index" : 0,
 					"maxclass" : "outlet",
 					"numinlets" : 1,
 					"numoutlets" : 0,
@@ -104,7 +115,7 @@
 					"numinlets" : 1,
 					"numoutlets" : 3,
 					"outlettype" : [ "", "int", "int" ],
-					"patching_rect" : [ 352.0, 360.0, 58.0, 22.0 ],
+					"patching_rect" : [ 329.5, 368.0, 58.0, 22.0 ],
 					"text" : "change 0"
 				}
 
@@ -242,7 +253,7 @@
 					"maxclass" : "comment",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 306.0, 480.0, 150.0, 20.0 ],
+					"patching_rect" : [ 336.0, 477.0, 64.0, 20.0 ],
 					"text" : "amplitude"
 				}
 
@@ -253,7 +264,7 @@
 					"maxclass" : "comment",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 192.0, 437.0, 150.0, 20.0 ],
+					"patching_rect" : [ 144.0, 477.0, 150.0, 20.0 ],
 					"text" : "note name + octave"
 				}
 
@@ -262,7 +273,7 @@
 				"box" : 				{
 					"comment" : "",
 					"id" : "obj-7",
-					"index" : 3,
+					"index" : 0,
 					"maxclass" : "outlet",
 					"numinlets" : 1,
 					"numoutlets" : 0,
@@ -274,7 +285,7 @@
 				"box" : 				{
 					"comment" : "",
 					"id" : "obj-2",
-					"index" : 2,
+					"index" : 0,
 					"maxclass" : "outlet",
 					"numinlets" : 1,
 					"numoutlets" : 0,
@@ -302,7 +313,7 @@
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 1245.0, 281.0, 50.0, 22.0 ],
-					"text" : "G# 51"
+					"text" : "C"
 				}
 
 			}
@@ -640,7 +651,7 @@
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 1181.0, 415.5, 50.0, 22.0 ],
-					"text" : "A# 4"
+					"text" : "C"
 				}
 
 			}
@@ -978,7 +989,7 @@
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 1032.0, 455.5, 50.0, 22.0 ],
-					"text" : "E 4"
+					"text" : "C"
 				}
 
 			}
@@ -1316,7 +1327,7 @@
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 621.0, 337.5, 50.0, 22.0 ],
-					"text" : "D# 3"
+					"text" : "C"
 				}
 
 			}
@@ -1678,7 +1689,7 @@
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 81.0, 432.0, 50.0, 22.0 ],
-					"text" : "G 2"
+					"text" : "B 2"
 				}
 
 			}
@@ -2485,7 +2496,7 @@
 				"box" : 				{
 					"comment" : "",
 					"id" : "obj-3",
-					"index" : 1,
+					"index" : 0,
 					"maxclass" : "outlet",
 					"numinlets" : 1,
 					"numoutlets" : 0,
@@ -2500,7 +2511,7 @@
 					"maxclass" : "comment",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 44.5, 520.0, 153.0, 47.0 ],
+					"patching_rect" : [ 44.5, 608.00000262260437, 153.0, 47.0 ],
 					"text" : "Lowest accurate note is G# 2 - maybe change max frequency?"
 				}
 
@@ -2549,7 +2560,7 @@
 					"numinlets" : 1,
 					"numoutlets" : 2,
 					"outlettype" : [ "signal", "signal" ],
-					"patching_rect" : [ 416.0, 168.0, 45.0, 45.0 ]
+					"patching_rect" : [ 336.0, 166.0, 45.0, 45.0 ]
 				}
 
 			}
@@ -3015,6 +3026,16 @@
 
 			}
  ],
+		"dependency_cache" : [ 			{
+				"name" : "fiddle~.mxo",
+				"type" : "iLaX"
+			}
+, 			{
+				"name" : "sigmund~.mxo",
+				"type" : "iLaX"
+			}
+ ],
+		"autosave" : 0,
 		"bgcolor" : [ 1.0, 1.0, 1.0, 1.0 ]
 	}
 

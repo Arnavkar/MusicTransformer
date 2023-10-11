@@ -10,7 +10,7 @@
 		}
 ,
 		"classnamespace" : "box",
-		"rect" : [ 34.0, 87.0, 1283.0, 779.0 ],
+		"rect" : [ 34.0, 87.0, 1372.0, 779.0 ],
 		"bglocked" : 0,
 		"openinpresentation" : 0,
 		"default_fontsize" : 12.0,
@@ -172,7 +172,7 @@
 					"numinlets" : 2,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 805.0, 1211.0, 296.0, 49.0 ],
+					"patching_rect" : [ 805.0, 1211.0, 299.0, 49.0 ],
 					"presentation" : 1,
 					"presentation_linecount" : 2,
 					"presentation_rect" : [ 509.0, 477.0, 581.0, 35.0 ],
@@ -323,7 +323,7 @@
 					"numoutlets" : 0,
 					"patching_rect" : [ 1423.0, 943.0, 150.0, 20.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 1173.0, 906.0, 150.0, 20.0 ]
+					"presentation_rect" : [ 1389.000006437301636, 895.333333015441895, 150.0, 20.0 ]
 				}
 
 			}
@@ -737,7 +737,7 @@
 					"patching_rect" : [ 1067.0, 956.0, 150.0, 33.0 ],
 					"presentation" : 1,
 					"presentation_linecount" : 3,
-					"presentation_rect" : [ 1103.25, 439.0, 89.0, 47.0 ],
+					"presentation_rect" : [ 1103.25, 439.0, 90.0, 47.0 ],
 					"text" : "flush the stored items in the queue"
 				}
 
@@ -1315,8 +1315,6 @@
 					"saved_object_attributes" : 					{
 						"autostart" : 0,
 						"defer" : 0,
-						"node_bin_path" : "",
-						"npm_bin_path" : "",
 						"watch" : 0
 					}
 ,
@@ -2054,7 +2052,7 @@
 			}
 , 			{
 				"name" : "main.js",
-				"bootpath" : "~/Desktop/sproj/code/tfjs_improvRNN_model",
+				"bootpath" : "~/Desktop/sproj/code/TSImprovisor",
 				"patcherrelativepath" : ".",
 				"type" : "TEXT",
 				"implicit" : 1
@@ -2067,8 +2065,8 @@
 			}
 , 			{
 				"name" : "pitchtracking.maxpat",
-				"bootpath" : "~/Desktop/sproj/Patches",
-				"patcherrelativepath" : "../../Patches",
+				"bootpath" : "~/Desktop/sproj/code/TSImprovisor",
+				"patcherrelativepath" : ".",
 				"type" : "JSON",
 				"implicit" : 1
 			}
