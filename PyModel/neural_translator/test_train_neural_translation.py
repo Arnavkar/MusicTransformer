@@ -1,7 +1,7 @@
-from tensorflow.keras.optimizers.legacy import Adam
+from keras.optimizers.legacy import Adam
 from Transformer.LRSchedule import LRScheduler
 from data.neural_translation.PrepareDataset_neural_translation import PrepareDataset
-from tensorflow.keras.metrics import Mean
+from keras.metrics import Mean
 from tensorflow import data, train, math, reduce_sum, cast, equal, argmax, float32, GradientTape, TensorSpec, function, int64
 from keras.losses import sparse_categorical_crossentropy
 from Transformer.model import TransformerModel

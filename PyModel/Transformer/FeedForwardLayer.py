@@ -1,4 +1,4 @@
-from tensorflow.keras.layers import Layer, Dense, ReLU
+from keras.layers import Layer, Dense, ReLU
 import tensorflow as tf
 from .utils import check_shape
     
