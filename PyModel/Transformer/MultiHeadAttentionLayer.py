@@ -4,8 +4,8 @@ sys.path.append('./PyModel')
 
 import tensorflow as tf
 from tensorflow.keras.layers import Layer, Dense
-from Layers.utils import check_shape
-from params import baseline_test_params, Params
+from Transformer.utils import check_shape
+from PyModel.Transformer.params import baseline_test_params, Params
 
 p = Params(baseline_test_params)
 

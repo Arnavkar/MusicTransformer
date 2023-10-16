@@ -4,12 +4,12 @@ sys.path.append('./PyModel')
 import tensorflow as tf
 from tensorflow.keras.layers import Layer, Dropout, Input
 from tensorflow.keras.models import Model
-from Layers.MultiHeadAttentionLayer import MultiHeadAttention
-from Layers.FeedForwardLayer import FeedForward
-from Layers.PositionalEncodingLayer import PositionEmbeddingFixedWeights
-from Layers.AddNormalizationLayer import AddNormalization
-from Layers.utils import check_shape
-from params import baseline_test_params, Params
+from Transformer.MultiHeadAttentionLayer import MultiHeadAttention
+from Transformer.FeedForwardLayer import FeedForward
+from Transformer.PositionalEncodingLayer import PositionEmbeddingFixedWeights
+from Transformer.AddNormalizationLayer import AddNormalization
+from Transformer.utils import check_shape
+from PyModel.Transformer.params import baseline_test_params, Params
 
 class EncoderLayer(Model):
     def __init__(self, p:Params, **kwargs):

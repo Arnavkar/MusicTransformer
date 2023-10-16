@@ -3,7 +3,7 @@ import sys
 sys.path.append('./PyModel')
 
 from tensorflow.keras.layers import Layer, Dense, ReLU
-from Layers.utils import check_shape
+from Transformer.utils import check_shape
     
 class FeedForward(Layer):
     def __init__(self, d_in, d_out, **kwargs):

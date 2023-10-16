@@ -1,10 +1,10 @@
 import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Dense, Input
-from Layers.Encoder import Encoder
-from Layers.Decoder import Decoder
-from Layers.utils import padding_mask, lookahead_mask
-from params import baseline_test_params, Params
+from Transformer.Encoder import Encoder
+from Transformer.Decoder import Decoder
+from Transformer.utils import padding_mask, lookahead_mask
+from PyModel.Transformer.params import baseline_test_params, Params
 
 class TransformerModel(Model):
     def __init__(self,p:Params,**kwargs):

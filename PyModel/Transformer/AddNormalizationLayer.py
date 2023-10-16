@@ -4,7 +4,7 @@ sys.path.append('./PyModel')
 
 from tensorflow.keras.layers import Layer, LayerNormalization
 import tensorflow as tf
-from Layers.utils import check_shape
+from Transformer.utils import check_shape
 
 class AddNormalization(Layer):
     def __init__(self, **kwargs):

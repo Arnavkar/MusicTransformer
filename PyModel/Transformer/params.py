@@ -27,7 +27,7 @@ baseline_test_params= {
     "num_encoder_layers" : 6,
     "decoder_vocab_size" : 20,
     "num_decoder_layers" : 6,
-    "epochs":10,
+    "epochs":20,
     "beta_1":0.9,
     "beta_2":0.98,
     "epsilon":1e-9,

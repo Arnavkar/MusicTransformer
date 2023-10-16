@@ -5,7 +5,7 @@ sys.path.append('./PyModel')
 from tensorflow.keras.layers import Layer, Embedding
 import numpy as np
 import tensorflow as tf
-from Layers.utils import check_shape
+from Transformer.utils import check_shape
 
 #Positional encoding as specified in the paper "Attention is all you need"
 #Embedding layer is used to convert integer values into vectors

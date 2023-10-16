@@ -52,10 +52,9 @@ dependencies:
       - tensorboard-data-server==0.7.1
       - tensorflow==2.13.0
       - tensorflow-estimator==2.13.0
-      - tensorflow-macos==2.13.0
       - termcolor==2.3.0
       - typing-extensions==4.5.0
       - urllib3==1.26.16
       - werkzeug==2.3.7
       - wrapt==1.15.0
-prefix: /Users/arnav/anaconda3/envs/tensorflow
+prefix: /home/arnav/anaconda3/envs/tensorflow
