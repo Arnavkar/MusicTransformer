@@ -1,17 +1,14 @@
-import sys
-sys.path.append('./PyModel')
-
 import tensorflow as tf
 from tensorflow.keras.layers import Layer, Dropout, Input
 from tensorflow.keras.models import Model
-from Transformer.MultiHeadAttentionLayer import MultiHeadAttention
-from Transformer.FeedForwardLayer import FeedForward
-from Transformer.PositionalEncodingLayer import PositionEmbeddingFixedWeights
-from Transformer.AddNormalizationLayer import AddNormalization
-from Transformer.utils import check_shape
-from PyModel.Transformer.params import baseline_test_params, Params
+from .MultiHeadAttentionLayer import MultiHeadAttention
+from .FeedForwardLayer import FeedForward
+from .PositionalEncodingLayer import PositionEmbeddingFixedWeights
+from .AddNormalizationLayer import AddNormalization
+from .utils import check_shape
+from .params import baseline_test_params, Params
 
-class EncoderLayer(Model):
+class EncoderLayer(Layer):
     def __init__(self, p:Params, **kwargs):
         super(EncoderLayer, self).__init__(**kwargs)
         #for building graph
@@ -49,7 +46,7 @@ class EncoderLayer(Model):
         final = self.add_norm2(addnorm_output, ff_output)
         return final
     
-class Encoder(Model):
+class Encoder(Layer):
     def __init__(self, p:Params, **kwargs):
         super(Encoder,self).__init__(**kwargs)
         self.positional_encoding = PositionEmbeddingFixedWeights(p.encoder_seq_len, p.encoder_vocab_size, p.model_dim)
@@ -79,13 +76,13 @@ if __name__ == "__main__":
 
     encoderLayer = EncoderLayer(p)
     output = encoderLayer(encoder_layer_input_seq, None, True)
-    print(f'Encoder Layer output shape: {output.shape}')
-    encoderLayer.summary()
+    print(f'Encoder Layer output: {output}')
+    #encoderLayer.summary()
 
     encoder = Encoder(p)
     output = encoder(input_seq, None, True)
-    print(f'Encoder output shape: {output.shape}')
-    encoder.summary()
+    print(f'Encoder output shape: {output}')
+    # encoder.summary()
 
     
     #None is the mask, True is the flag for training which only applies droput when flag value is set to true

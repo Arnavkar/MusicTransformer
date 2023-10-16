@@ -1,10 +1,10 @@
 import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Dense, Input
-from Transformer.Encoder import Encoder
-from Transformer.Decoder import Decoder
-from Transformer.utils import padding_mask, lookahead_mask
-from PyModel.Transformer.params import baseline_test_params, Params
+from .Encoder import Encoder
+from .Decoder import Decoder
+from .utils import padding_mask, lookahead_mask
+from .params import baseline_test_params, Params
 
 class TransformerModel(Model):
     def __init__(self,p:Params,**kwargs):
@@ -28,6 +28,7 @@ if __name__ == "__main__":
     p = Params(baseline_test_params)
     test_tensor = tf.random.uniform((p.batch_size, p.seq_len))
     model = TransformerModel(p)
-    _ = model(test_tensor, test_tensor, True)
+    output = model(test_tensor, test_tensor, True)
+    print(f'Transformer Model output: {output}')
     model.summary()
 

@@ -1,9 +1,6 @@
-import sys
-# appending Layer path
-sys.path.append('./PyModel')
-
 from tensorflow.keras.layers import Layer, Dense, ReLU
-from Transformer.utils import check_shape
+import tensorflow as tf
+from .utils import check_shape
     
 class FeedForward(Layer):
     def __init__(self, d_in, d_out, **kwargs):
@@ -17,3 +14,10 @@ class FeedForward(Layer):
         output = self.activation(output)
         output = self.fully_connected2(output)
         return output
+    
+
+if __name__ == "__main__":
+    test_tensor = tf.constant([[1,3,4,2,0]])
+    layer = FeedForward(5,3)
+    output = layer(test_tensor)
+    print(f"feedforward output: {output}")

@@ -19,7 +19,7 @@ class PrepareDataset:
         return tokenizer
     
     def save_tokenizer(self, tokenizer, name):
-        with open(name + '_tokenizer.pkl', 'wb') as handle:
+        with open( 'neural_translator/' +name + '_tokenizer.pkl', 'wb') as handle:
             dump(tokenizer, handle, protocol=HIGHEST_PROTOCOL)
  
     def find_seq_length(self, dataset):
@@ -80,6 +80,6 @@ class PrepareDataset:
         self.save_tokenizer(dec_tokenizer, 'dec')
 
         # Save the test dataset separately
-        savetxt('test_dataset.csv', test, fmt='%s')
+        savetxt('./data/neural_translation/test_dataset.csv', test, fmt='%s')
 
         return trainX, trainY, valX, valY, train, val, enc_seq_length, dec_seq_length, enc_vocab_size, dec_vocab_size

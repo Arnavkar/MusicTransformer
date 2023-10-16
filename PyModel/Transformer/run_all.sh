@@ -1,0 +1,9 @@
+python Transformer/AddNormalizationLayer.py
+python Transformer/Decoder.py
+python Transformer/Encoder.py
+python Transformer/FeedForwardLayer.py
+python Transformer/LRSchedule.py
+python Transformer/model.py
+python Transformer/MultiHeadAttentionLayer.py
+python Transformer/PositionalEncodingLayer.py
+python Transformer/utils.py

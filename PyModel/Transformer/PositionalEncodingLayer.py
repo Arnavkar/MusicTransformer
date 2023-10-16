@@ -1,11 +1,7 @@
-import sys
-# appending Layer path
-sys.path.append('./PyModel')
-
 from tensorflow.keras.layers import Layer, Embedding
 import numpy as np
 import tensorflow as tf
-from Transformer.utils import check_shape
+from .utils import check_shape
 
 #Positional encoding as specified in the paper "Attention is all you need"
 #Embedding layer is used to convert integer values into vectors
@@ -67,4 +63,5 @@ if __name__ == "__main__":
     check_shape("positional encoding",
                 positional_encoding_output,
                 (test_tensor.shape[0],test_tensor.shape[1],output_length))
+    print(f"positional encoding output: {positional_encoding_output}")
     

@@ -1,11 +1,7 @@
-import sys
-# appending Layer path
-sys.path.append('./PyModel')
-
 import tensorflow as tf
 from tensorflow.keras.layers import Layer, Dense
-from Transformer.utils import check_shape
-from PyModel.Transformer.params import baseline_test_params, Params
+from .utils import check_shape
+from .params import baseline_test_params, Params
 
 p = Params(baseline_test_params)
 
@@ -103,4 +99,6 @@ if __name__ == "__main__":
 
     attention_layer = MultiHeadAttention(p)
     #Expect shape to be 64, 5, 512
-    check_shape("test",attention_layer([queries,keys,values]),(p.batch_size,p.seq_len,p.model_dim))
+    output = attention_layer([queries,keys,values])
+    check_shape("test",output,(p.batch_size,p.seq_len,p.model_dim))
+    print(f'Attention Layer output: {output}')

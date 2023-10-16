@@ -1,17 +1,14 @@
-# appending Layer path
-sys.path.append('./PyModel')
-
 import tensorflow as tf
 from tensorflow.keras.layers import Layer, Dropout, Input
 from tensorflow.keras.models import Model
-from Transformer.MultiHeadAttentionLayer import MultiHeadAttention
-from Transformer.FeedForwardLayer import FeedForward
-from Transformer.AddNormalizationLayer import AddNormalization
-from Transformer.PositionalEncodingLayer import PositionEmbeddingFixedWeights
-from Transformer.utils import check_shape
-from PyModel.Transformer.params import baseline_test_params, Params
+from .MultiHeadAttentionLayer import MultiHeadAttention
+from .FeedForwardLayer import FeedForward
+from .AddNormalizationLayer import AddNormalization
+from .PositionalEncodingLayer import PositionEmbeddingFixedWeights
+from .utils import check_shape
+from .params import baseline_test_params, Params
 
-class DecoderLayer(Model):
+class DecoderLayer(Layer):
     def __init__(self, p:Params, **kwargs):
         super(DecoderLayer,self).__init__(**kwargs)
         #to build graph
@@ -51,7 +48,7 @@ class DecoderLayer(Model):
         final = self.add_norm3(addnorm_output2, ff_output)
         return final
     
-class Decoder(Model):
+class Decoder(Layer):
     def __init__(self,p:Params, **kwargs):
         super().__init__(**kwargs)
         self.positional_encoding = PositionEmbeddingFixedWeights(p.decoder_seq_len, p.decoder_vocab_size, p.model_dim)
@@ -80,12 +77,14 @@ if __name__ == "__main__":
     enc_output = tf.random.uniform((p.batch_size, p.seq_len,p.model_dim))
 
     decoder = Decoder(p)
-    decoder(input_seq, enc_output, None, None, True)
-    decoder.summary()
+    output = decoder(input_seq, enc_output, None, None, True)
+    print(f'Decoder output: {output}')
+    #decoder.summary()
 
     decoder_layer = DecoderLayer(p)
-    decoder_layer(decoder_layer_input_seq, enc_output, None, None, True)
-    decoder_layer.summary()
+    output = decoder_layer(decoder_layer_input_seq, enc_output, None, None, True)
+    print(f'Decoder Layer output: {output}')
+    # decoder_layer.summary()
 
 
 #One shot, Two shot , 3 Shot training 
