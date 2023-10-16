@@ -1,5 +1,5 @@
 import tensorflow as tf
-from keras.layers import Layer, Dense
+from tensorflow.keras.layers import Layer, Dense
 from .utils import check_shape
 from .params import baseline_test_params, Params
 

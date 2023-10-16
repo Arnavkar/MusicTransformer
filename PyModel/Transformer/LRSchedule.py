@@ -1,5 +1,5 @@
 # Implementing a learning rate scheduler
-from keras.optimizers.schedules import LearningRateSchedule
+from tensorflow.keras.optimizers.schedules import LearningRateSchedule
 from tensorflow import math, cast, float32
 import tensorflow as tf
 

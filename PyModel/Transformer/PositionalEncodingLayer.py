@@ -1,4 +1,4 @@
-from keras.layers import Layer, Embedding
+from tensorflow.keras.layers import Layer, Embedding
 import numpy as np
 import tensorflow as tf
 from .utils import check_shape

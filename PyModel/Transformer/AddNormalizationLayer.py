@@ -1,4 +1,4 @@
-from keras.layers import Layer, LayerNormalization
+from tensorflow.keras.layers import Layer, LayerNormalization
 import tensorflow as tf
 from .utils import check_shape
 

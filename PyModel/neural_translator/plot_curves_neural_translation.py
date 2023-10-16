@@ -5,8 +5,8 @@ from matplotlib.pylab import plt
 from numpy import arange
  
 # Load the training and validation loss dictionaries
-train_loss = load(open('train_loss.pkl', 'rb'))
-val_loss = load(open('val_loss.pkl', 'rb'))
+train_loss = load(open('neural_translator/train_loss.pkl', 'rb'))
+val_loss = load(open('neural_translator/val_loss.pkl', 'rb'))
  
 # Retrieve each dictionary's values
 train_values = train_loss.values()
