@@ -10,11 +10,6 @@ import tensorflow as tf
 from Transformer.params import baseline_test_params, Params
 from pickle import dump
 
-import sys
-import os
-#print(sys.path)
-print(os.getcwd())
-
 p = Params(baseline_test_params)
  
 # Instantiate an Adam optimizer
@@ -23,7 +18,6 @@ optimizer = Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
 # Prepare the training and test splits of the dataset
 dataset = PrepareDataset()
 trainX, trainY, valX, valY, train_orig, val_orig, enc_seq_length, dec_seq_length, enc_vocab_size, dec_vocab_size = dataset('./data/neural_translation/english-german-both.pkl')
-
 # Prepare the training dataset batches
 train_dataset = data.Dataset.from_tensor_slices((trainX, trainY))
 train_dataset = train_dataset.batch(p.batch_size)
@@ -159,5 +153,6 @@ with open('././neural_translator/train_loss.pkl', 'wb') as file:
 with open('./neural_translator/val_loss.pkl', 'wb') as file:
     dump(val_loss_dict, file)
  
-print("Training Complete! Total time taken: %.2fs" % (time() - start_time))    
+print("Training Complete! Total time taken: %.2fs" % (time() - start_time))   
+print(tf.train.list_variables(ckpt_manager.latest_checkpoint) )
 

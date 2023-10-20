@@ -18,18 +18,19 @@
 #test params from tutorial - for translation task
 baseline_test_params= {
     "num_heads": 8,  # Number of self-attention heads
-    "embedding_dim":64,  # Dimensionality of the embedded queries and keys
+    "key_dim": 64,  # Dimensionality of linearly projected queries and keys
+    "value_dim": 64,  # Dimensionality of linearly projected values
     "model_dim":512,  # Dimensionality of the model final output
     "batch_size" :64,  # Batch size from the training process
     "seq_len" : 5, #sequence length
     "feed_forward_dim" : 2048,
     "batch_size" :64, #number of sequences in a batch
-    "dropout_rate" : 0.1,
+    "dropout_rate" : 0.2,
     "encoder_vocab_size" : 20,
     "num_encoder_layers" : 6,
     "decoder_vocab_size" : 20,
     "num_decoder_layers" : 6,
-    "epochs":20,
+    "epochs":15,
     "beta_1":0.9,
     "beta_2":0.98,
     "epsilon":1e-9,
@@ -40,7 +41,8 @@ baseline_test_params= {
 class Params:
     def __init__(self, param_dict):
         self.num_heads = param_dict["num_heads"]
-        self.embedding_dim = param_dict["embedding_dim"]
+        self.key_dim = param_dict["key_dim"]
+        self.value_dim = param_dict["value_dim"]
         self.model_dim = param_dict["model_dim"]
         self.batch_size = param_dict["batch_size"]
         self.seq_len = param_dict["seq_len"]
@@ -59,7 +61,8 @@ class Params:
 
     def print_params(self):
         print("num_heads: ", self.num_heads)
-        print("embedding_dim: ", self.embedding_dim)
+        print("key_dim: ", self.key_dim)
+        print("value_dim: ", self.value_dim)
         print("model_dim: ", self.model_dim)
         print("batch_size: ", self.batch_size)
         print("seq_len: ", self.seq_len)

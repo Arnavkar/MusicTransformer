@@ -1,6 +1,5 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Layer, Dropout, Input
-from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Layer, Dropout
 from .MultiHeadAttentionLayer import MultiHeadAttention
 from .FeedForwardLayer import FeedForward
 from .AddNormalizationLayer import AddNormalization

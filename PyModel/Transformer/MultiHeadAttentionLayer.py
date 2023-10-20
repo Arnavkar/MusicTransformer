@@ -13,29 +13,30 @@ class MultiHeadAttention(Layer):
             raise NotImplementedError("Relative attention not yet implemented")
         
         self.num_heads = p.num_heads
-        self.embedding_dim = p.embedding_dim
+        self.key_dim = p.key_dim
+        self.value_dim = p.value_dim
         self.model_dim = p.model_dim
 
         #Data input must be divisible by the number of heads
         assert self.model_dim % self.num_heads == 0
 
-        self.W_query = Dense(self.embedding_dim)
-        self.W_key = Dense(self.embedding_dim)
-        self.W_value = Dense(self.embedding_dim)
+        self.W_query = Dense(self.key_dim)
+        self.W_key = Dense(self.key_dim)
+        self.W_value = Dense(self.value_dim)
         self.W_out = Dense(self.model_dim)
     
     def scaled_dot_product_attention(self, q, k, v, mask=None):
         #Q, K, V all have shape [batch_size, num_heads, seq_len, dim_per_head]
         
         #First multiply queries by keys to get similarity scores and normalize
-        attention_weights = tf.matmul(q, k, transpose_b=True) / tf.math.sqrt(tf.cast(self.embedding_dim, tf.float32))
+        attention_weights = tf.matmul(q, k, transpose_b=True) / tf.math.sqrt(tf.cast(self.key_dim, tf.float32))
 
         #Mask if required (Eg. decoder layer), prevent attention from future outputs
         #Essentially multiply by an extremely small negative number to remove future values from softmax calculation
         if mask is not None: attention_weights += -1e9 * mask
 
         #Use softmax to get attention weights in terms of probability distribution
-        attention_weights = tf.nn.softmax(attention_weights, axis=-1)
+        attention_weights = tf.nn.softmax(attention_weights)
 
         #Multiply by values to get context vector
         context_vector = tf.matmul(attention_weights, v)
@@ -59,10 +60,10 @@ class MultiHeadAttention(Layer):
     
     def concat_heads(self,tensor):
         tensor = tf.transpose(tensor, perm=[0,2,1,3])
-        tensor = tf.reshape(tensor, (tf.shape(tensor)[0], tf.shape(tensor)[1], -1))
+        tensor = tf.reshape(tensor, (tf.shape(tensor)[0], tf.shape(tensor)[1], self.key_dim))
         return tensor
     
-    def call(self, inputs, mask=None, **kwargs):
+    def call(self, inputs, mask, **kwargs):
         '''
         input: a list of tensors, representing [queries, keys, values]
         mask: for masked multi head attention in decoder
