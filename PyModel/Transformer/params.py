@@ -33,7 +33,7 @@ baseline_test_params= {
 
 
 #test params from tutorial - for translation task
-midi_test_params_v1= {
+midi_test_params_v1 = {
     "num_heads": 8,  # Number of self-attention heads
     "key_dim": 64,  # Dimensionality of linearly projected queries and keys
     "value_dim": 64,  # Dimensionality of linearly projected values
@@ -41,18 +41,17 @@ midi_test_params_v1= {
     "batch_size" :64,  # Batch size from the training process
     "feed_forward_dim" : 2048,
     "batch_size" :64, #number of sequences in a batch
-    "dropout_rate" : 0.2,
-    "encoder_vocab_size" : event_dim,
+    "dropout_rate" : 0.1,
+    "encoder_vocab_size" : event_dim + 3,
     "num_encoder_layers" : 6,
-    "decoder_vocab_size" : event_dim,
+    "decoder_vocab_size" : event_dim + 3,
     "num_decoder_layers" : 6,
-    "epochs":100,
+    "epochs":50,
     "beta_1":0.9,
     "beta_2":0.98,
     "epsilon":1e-9,
     "encoder_seq_len": 50,
     "decoder_seq_len": 50,
-    "event_dim" : event_dim,
     "pad_token" : event_dim,
     "token_eos" : event_dim + 1,
     "token_sos" : event_dim + 2,

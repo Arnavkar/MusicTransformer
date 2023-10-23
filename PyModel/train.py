@@ -1,9 +1,9 @@
 from keras.optimizers.legacy import Adam
 from Transformer.LRSchedule import LRScheduler
 from CustomDataset import CustomDataset
-from keras.metrics import Mean
+from tensorflow.keras.metrics import Mean
 from tensorflow import data, train, math, reduce_sum, cast, equal, argmax, float32, GradientTape, TensorSpec, function, int64
-from keras.losses import sparse_categorical_crossentropy
+from tensorflow.keras.losses import sparse_categorical_crossentropy
 from Transformer.model import TransformerModel
 from time import time
 import tensorflow as tf
@@ -45,26 +45,13 @@ print(p)
 transformer = TransformerModel(p)
  
 # Instantiate an Adam optimizer
-optimizer = Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
+#optimizer = Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
+
+#Using learning rate from Github repo
+optimizer = Adam(0.001, p.beta_1, p.beta_2, p.epsilon)
  
 # Prepare the training and test splits of the dataset
 dataset = CustomDataset(p)
-print(dataset)
-
-# define tensorboard writer
-current_time = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-train_log_dir = 'logs/mt_decoder/'+current_time+'/train'
-eval_log_dir = 'logs/mt_decoder/'+current_time+'/eval'
-train_summary_writer = tf.summary.create_file_writer(train_log_dir)
-eval_summary_writer = tf.summary.create_file_writer(eval_log_dir)
-
-# # Prepare the training dataset batches
-# train_dataset = data.Dataset.from_tensor_slices((trainX, trainY))
-# train_dataset = train_dataset.batch(p.batch_size)
-
-# # Prepare the validation dataset batches
-# val_dataset = data.Dataset.from_tensor_slices((valX, valY))
-# val_dataset = val_dataset.batch(p.batch_size)
 
 # Include metrics monitoring
 train_loss = Mean(name='train_loss')
