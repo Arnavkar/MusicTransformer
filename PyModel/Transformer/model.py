@@ -9,11 +9,12 @@ from .params import baseline_test_params, Params
 class TransformerModel(Model):
     def __init__(self,p:Params,**kwargs):
         super(TransformerModel,self).__init__(**kwargs)
+        self.debug = p.debug
         self.model_dim = p.model_dim
-        self.seq_len = p.seq_len
         self.encoder = Encoder(p)
         self.decoder = Decoder(p)
         self.dense = Dense(p.decoder_vocab_size)
+
     
     def call(self, encoder_input, decoder_input, training):
         padding = padding_mask(encoder_input)

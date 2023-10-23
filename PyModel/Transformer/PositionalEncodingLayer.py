@@ -9,8 +9,10 @@ from .utils import check_shape
 class PositionEmbeddingFixedWeights(Layer):
     def __init__(self, seq_len, vocab_size, output_dim, **kwargs):
         super(PositionEmbeddingFixedWeights, self).__init__(**kwargs)
-        input_embedding_matrix = self.get_positional_encoding(vocab_size, output_dim)   
+        input_embedding_matrix = self.get_positional_encoding(vocab_size, output_dim)  
+        #print(f"input embedding matrix shape: {input_embedding_matrix.shape}") 
         position_embedding_matrix = self.get_positional_encoding(seq_len, output_dim)    
+        #print(f"input embedding matrix shape: {input_embedding_matrix.shape}") 
 
         #trainiable must be false since we are using pre-defined weights
         self.input_embedding_layer = Embedding(
@@ -46,8 +48,11 @@ class PositionEmbeddingFixedWeights(Layer):
 
     def call(self, inputs):        
         position_indices = tf.range(tf.shape(inputs)[-1])
+        #print(f"position indices shape: {position_indices.shape}")
         embedded_input = self.input_embedding_layer(inputs)
+        #print(f"embedded input shape: {embedded_input.shape}")
         embedded_indices = self.position_embedding_layer(position_indices)
+        #print(f"embedded indices shape: {embedded_indices.shape}")
         return embedded_input + embedded_indices
     
 if __name__ == "__main__":
@@ -64,4 +69,5 @@ if __name__ == "__main__":
                 positional_encoding_output,
                 (test_tensor.shape[0],test_tensor.shape[1],output_length))
     print(f"positional encoding output: {positional_encoding_output}")
+    print(f"positional encoding shape: {positional_encoding_output.shape}")
     
