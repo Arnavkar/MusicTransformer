@@ -37,9 +37,8 @@ midi_test_params_v1 = {
     "key_dim": 64,  # Dimensionality of linearly projected queries and keys
     "value_dim": 64,  # Dimensionality of linearly projected values
     "model_dim":512,  # Dimensionality of the model final output
-    "batch_size" :64,  # Batch size from the training process
+    "batch_size" :4,  # Batch size from the training process
     "feed_forward_dim" : 2048,
-    "batch_size" :64, #number of sequences in a batch
     "dropout_rate" : 0.1,
     "encoder_vocab_size" : event_dim,
     "num_encoder_layers" : 6,
@@ -49,8 +48,8 @@ midi_test_params_v1 = {
     "beta_1":0.9,
     "beta_2":0.98,
     "epsilon":1e-9,
-    "encoder_seq_len": 64,
-    "decoder_seq_len": 64,
+    "encoder_seq_len": 2048,
+    "decoder_seq_len": 2048,
     "pad_token" : 0,
     "token_sos" : 1,
     "token_eos" : 2,

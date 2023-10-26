@@ -42,7 +42,6 @@ def accuracy_fcn(target, prediction):
     return reduce_sum(accuracy) / reduce_sum(padding_mask)
 
 p = Params(midi_test_params_v1)
-print(p)
 transformer = TransformerModel(p)
  
 # Instantiate an Adam optimizer
@@ -90,7 +89,8 @@ def train_step(encoder_input, decoder_input, decoder_output):
  
     train_loss(loss)
     train_accuracy(accuracy)
- 
+    
+start_time = time()
 for epoch in range(p.epochs):
     train_loss.reset_states()
     train_accuracy.reset_states()
@@ -98,8 +98,8 @@ for epoch in range(p.epochs):
  
     print("\nStart of epoch %d" % (epoch + 1))
  
-    start_time = time()
-    for b in range(len(dataset.fileDict) // p.batch_size):
+   
+    for step in range(len(dataset.fileDict) // p.batch_size):
         train_batchX,train_batchY = dataset.slide_seq2seq_batch(p.batch_size, p.encoder_seq_len, 1, 'train')
         val_batchX,val_batchY = dataset.slide_seq2seq_batch(p.batch_size, p.encoder_seq_len, 1, 'validation')
 
@@ -111,9 +111,8 @@ for epoch in range(p.epochs):
         decoder_input_val = val_batchY[:, :-1]
         decoder_output_val = val_batchY[:, 1:]
 
-        #train_step(encoder_input_train, decoder_input_train, decoder_output_train)
+        train_step(encoder_input_train, decoder_input_train, decoder_output_train)
 
-        
     prediction = transformer(encoder_input_val, decoder_input_val, training = False)
     loss = loss_fcn(decoder_output_val, prediction)
     val_loss(loss)

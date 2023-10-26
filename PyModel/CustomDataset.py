@@ -83,9 +83,11 @@ class CustomDataset():
         files = random.sample(files, batch_size)
 
         #from each file, extract a random sequence of length
-        data = np.array([self.extract_sequence(file, length) for file in files])
-
-        return data
+        data = [self.extract_sequence(file, length) for file in files]
+        
+        for array in data:
+            assert len(array) == length+1, f"Length of array {len(array)} is not equal to length {length+2}"
+        return np.array(data,int)
     
     def extract_sequence(self, fname, length):
         with open(fname, 'rb') as f:
@@ -97,40 +99,36 @@ class CustomDataset():
         else:
             #concat EOS tokens to the end of the sequence
             data = np.append(data, self.params.token_eos)
-            while len(data) < length:
+            while len(data) < length+1:
                 data = np.append(data, self.params.pad_token)
         return data
     
     def slide_seq2seq_batch(self, batch_size, length, num_tokens_predicted=1, mode='train'):
         assert num_tokens_predicted <= length, "Num tokens predicted must be less than length of sequence provided!"
-        data = self.get_batch(batch_size, length+num_tokens_predicted, mode)
-
+        data = self.get_batch(batch_size, length, mode)
         #Accounting for the eos token added in extract_sequence
-        x = data[:, :-num_tokens_predicted-1]
+        x = data[:, :-num_tokens_predicted]
         y = data[:, num_tokens_predicted:]
 
         x=np.insert(x,0,self.params.token_sos,axis = 1)
-        x=np.insert(x,len(x[0]),self.params.token_eos, axis = 1)
 
         #no need to add an additonal eos token, already add in extract_sequence
         y=np.insert(y,0,self.params.token_sos,axis=1)
-        if self.params.debug:
-            return data, x, y
         return x, y
 
 if __name__ == "__main__":
     p = Params(midi_test_params_v1)
     dataset = CustomDataset(p)
-    data, train_batchX,train_batchY = dataset.slide_seq2seq_batch(2, 5, num_tokens_predicted=1)
-    print(f'data:{data}')
-    print(f'Train X: {train_batchX}')
-    print(f'Train Y: {train_batchY}')
-    encoder_input_train = train_batchX
-    print(f'encoder input : {encoder_input_train}')
-    decoder_input_train = train_batchY[:, :-1]
-    print(f'decoder input: {decoder_input_train}')
-    decoder_output_train = train_batchY[:, 1:]
-    print(f'decoder output: {decoder_output_train}')
+    # print(dataset)
+    train_batchX,train_batchY = dataset.slide_seq2seq_batch(64, 2048, 1,'train')
+    # print(f'Train X: {train_batchX}')
+    # print(f'Train Y: {train_batchY}')
+    # encoder_input_train = train_batchX
+    # print(f'encoder input : {encoder_input_train}')
+    # decoder_input_train = train_batchY[:, :-1]
+    # print(f'decoder input: {decoder_input_train}')
+    # decoder_output_train = train_batchY[:, 1:]
+    # print(f'decoder output: {decoder_output_train}')
 
     # found_dict = {}
     # for _ in range(20):
@@ -140,19 +138,33 @@ if __name__ == "__main__":
     #         for value in vec:
     #             if value not in found_dict:
     #                 found_dict[value] = 1
-
     # print(sorted(list(found_dict.keys())))
-    # numfiles = len(dataset.fileDict)
-    # print(f"Number of files: {numfiles}")
-    # total_events = 0
 
-    # for file in dataset.fileDict.values():
-    #     with open(file, 'rb') as f:
-    #         encoded_midi_data = pickle.load(f)
-    #         total_events += len(encoded_midi_data)
+    numfiles = len(dataset.fileDict)
+    print(f"Number of files: {numfiles}")
+    total_events = 0
+    maxlen = 0
+    minlen = float('inf')
+    lengths = []
+    for file in dataset.fileDict.values():
+        with open(file, 'rb') as f:
+            encoded_midi_data = pickle.load(f)
+            length = len(encoded_midi_data)
+            lengths.append(length)
+            if length < minlen: 
+                minlen = length
+            
+            if length > maxlen: 
+                maxlen = length
 
-    # avg_event = total_events / numfiles
-    # print(f"Average number of events per file: {avg_event}")
+            total_events += length
+
+    avg_event = total_events / numfiles
+    print(f"Total number of events: {total_events}")
+    print(f"Average number of events per file: {avg_event}")
+    print(f"Max length: {maxlen}")
+    print(f"Min length: {minlen}")
+    #print(f"lengtht_lis: {sorted(lengths)}")
 
     #Grab a simple file and sample it accordingly to grab more from each file 
     

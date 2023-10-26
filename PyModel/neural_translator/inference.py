@@ -68,7 +68,6 @@ class Translator(tf.Module):
  
             # Write the selected prediction to the output array at the next available index
             decoder_output = decoder_output.write(i + 1, predicted_id)
-            print(decoder_output.stack())
             # Break if an <EOS> token is predicted
             if predicted_id == output_end:
                 break
