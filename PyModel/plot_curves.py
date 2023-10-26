@@ -15,7 +15,6 @@ val_loss = load(open('./val_loss.pkl', 'rb'))
 train_values = train_loss.values()
 val_values = val_loss.values()
 
- 
 # Generate a sequence of integers to represent the epoch numbers
 epochs = range(p.epochs)
  

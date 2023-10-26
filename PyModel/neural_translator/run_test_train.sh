@@ -1,2 +1,2 @@
- python -m neural_translator.test_train_neural_translation
- python -m neural_translator.plot_curves_neural_translation
+ python -m neural_translator.train
+ python -m neural_translator.plot_curves

@@ -11,7 +11,8 @@ val_loss = load(open('neural_translator/val_loss.pkl', 'rb'))
 # Retrieve each dictionary's values
 train_values = train_loss.values()
 val_values = val_loss.values()
- 
+print(train_values)
+print(val_values)
 # Generate a sequence of integers to represent the epoch numbers
 epochs = range(1, 21)
  

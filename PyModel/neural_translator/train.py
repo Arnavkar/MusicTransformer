@@ -1,6 +1,6 @@
 from keras.optimizers.legacy import Adam
 from Transformer.LRSchedule import LRScheduler
-from data.neural_translation.PrepareDataset_neural_translation import PrepareDataset
+from data.neural_translation.PrepareDataset import PrepareDataset
 from keras.metrics import Mean
 from tensorflow import data, train, math, reduce_sum, cast, equal, argmax, float32, GradientTape, TensorSpec, function, int64
 from keras.losses import sparse_categorical_crossentropy
@@ -10,32 +10,6 @@ import tensorflow as tf
 from Transformer.params import baseline_test_params, Params
 from pickle import dump
 
-p = Params(baseline_test_params)
- 
-# Instantiate an Adam optimizer
-optimizer = Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
- 
-# Prepare the training and test splits of the dataset
-dataset = PrepareDataset()
-trainX, trainY, valX, valY, train_orig, val_orig, enc_seq_length, dec_seq_length, enc_vocab_size, dec_vocab_size = dataset('./data/neural_translation/english-german-both.pkl')
-#print(trainX)
-
-# Prepare the training dataset batches
-train_dataset = data.Dataset.from_tensor_slices((trainX, trainY))
-train_dataset = train_dataset.batch(p.batch_size)
-
-# Prepare the validation dataset batches
-val_dataset = data.Dataset.from_tensor_slices((valX, valY))
-val_dataset = val_dataset.batch(p.batch_size)
-
-p.encoder_vocab_size = enc_vocab_size
-p.decoder_vocab_size = dec_vocab_size
-p.encoder_seq_len = enc_seq_length
-p.decoder_seq_len = dec_seq_length
-p.print_params()
-
-transformer = TransformerModel(p)
- 
 # Defining the loss function
 def loss_fcn(target, prediction):
     # Create mask so that the zero padding values are not included in the computation of loss
@@ -47,7 +21,6 @@ def loss_fcn(target, prediction):
  
     # Compute the mean loss over the unmasked values
     return reduce_sum(loss) / reduce_sum(padding_mask)
- 
  
 # Defining the accuracy function
 def accuracy_fcn(target, prediction):
@@ -64,8 +37,32 @@ def accuracy_fcn(target, prediction):
  
     # Compute the mean accuracy over the unmasked values
     return reduce_sum(accuracy) / reduce_sum(padding_mask)
+
+p = Params(baseline_test_params)
  
+# Instantiate an Adam optimizer - 
+optimizer = Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
  
+# Prepare the training and test splits of the dataset
+dataset = PrepareDataset()
+trainX, trainY, valX, valY, train_orig, val_orig, enc_seq_length, dec_seq_length, enc_vocab_size, dec_vocab_size = dataset('./data/neural_translation/english-german-both.pkl')
+
+# Prepare the training dataset batches
+train_dataset = data.Dataset.from_tensor_slices((trainX, trainY))
+train_dataset = train_dataset.batch(p.batch_size)
+
+# Prepare the validation dataset batches
+val_dataset = data.Dataset.from_tensor_slices((valX, valY))
+val_dataset = val_dataset.batch(p.batch_size)
+
+p.encoder_vocab_size = enc_vocab_size
+p.decoder_vocab_size = dec_vocab_size
+p.encoder_seq_len = enc_seq_length
+p.decoder_seq_len = dec_seq_length
+p.print_params()
+
+transformer = TransformerModel(p)
+
 # Include metrics monitoring
 train_loss = Mean(name='train_loss')
 train_accuracy = Mean(name='train_accuracy')
@@ -112,18 +109,10 @@ for epoch in range(p.epochs):
  
     # Iterate over the dataset batches
     for step, (train_batchX, train_batchY) in enumerate(train_dataset):
-        print(f"Train BatchX shape{train_batchX.shape}")
-        print(train_batchX)
         # Define the encoder and decoder inputs, and the decoder output
         encoder_input = train_batchX[:, 1:]
-        print(f"Encoder input shape: {encoder_input.shape}")
-        print(encoder_input)
-        
         decoder_input = train_batchY[:, :-1]
-        print(f"Decoder input shape: {decoder_input.shape}")
-
         decoder_output = train_batchY[:, 1:]
-        print(f"Decoder output shape: {decoder_output.shape}")
  
         train_step(encoder_input, decoder_input, decoder_output)
  
@@ -139,20 +128,18 @@ for epoch in range(p.epochs):
         loss = loss_fcn(decoder_output, prediction)
         val_loss(loss)
 
-            # print("Samples so far: %s" % ((step + 1) * batch_size))
- 
     # Print epoch number and loss value at the end of every epoch
     print("Epoch %d: Training Loss %.4f, Training Accuracy %.4f, Validation Loss %.4f" % (epoch + 1, train_loss.result(), train_accuracy.result(), val_loss.result()))
  
     # Save a checkpoint after every five epochs
-    if (epoch + 1) % 1 == 0:
+    if (epoch + 1) % 5 == 0:
         save_path = ckpt_manager.save()
         print("Saved checkpoint at epoch %d" % (epoch + 1))
 
         transformer.save_weights('neural_translator/weights/wghts' + str(epoch + 1) +'.ckpt')
 
-        train_loss_dict[epoch] = train_loss.result()
-        val_loss_dict[epoch] = val_loss.result()
+    train_loss_dict[epoch] = train_loss.result()
+    val_loss_dict[epoch] = val_loss.result()
  
 # Save the training loss values
 with open('././neural_translator/train_loss.pkl', 'wb') as file:
@@ -163,5 +150,5 @@ with open('./neural_translator/val_loss.pkl', 'wb') as file:
     dump(val_loss_dict, file)
  
 print("Training Complete! Total time taken: %.2fs" % (time() - start_time))   
-print(tf.train.list_variables(ckpt_manager.latest_checkpoint) )
+#print(tf.train.list_variables(ckpt_manager.latest_checkpoint) )
 

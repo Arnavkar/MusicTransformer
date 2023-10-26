@@ -19,7 +19,7 @@ class PrepareDataset:
         return tokenizer
     
     def save_tokenizer(self, tokenizer, name):
-        with open( 'neural_translator/' +name + '_tokenizer.pkl', 'wb') as handle:
+        with open( './data/neural_translation/' +name + '_tokenizer.pkl', 'wb') as handle:
             dump(tokenizer, handle, protocol=HIGHEST_PROTOCOL)
  
     def find_seq_length(self, dataset):
@@ -49,30 +49,27 @@ class PrepareDataset:
         
         # Random shuffle the dataset
         shuffle(dataset)
-        print(len(dataset))
         
         # Split the dataset
         train = dataset[:int(self.n_sentences * self.train_split)]
-        print(len(train))
         val = dataset[int(self.n_sentences * self.train_split):int(self.n_sentences * (1 - self.val_split))]
-        print(len(val))
         test = dataset[int(self.n_sentences * (1 - self.val_split)):]
-        print(len(test))
         
         # Prepare tokenizer for the encoder input
         enc_tokenizer = self.create_tokenizer(train[:, 0])
         enc_seq_length = self.find_seq_length(train[:, 0])
         enc_vocab_size = self.find_vocab_size(enc_tokenizer, train[:, 0])
 
-         # Prepare tokenizer for the decoder input
+        # Prepare tokenizer for the decoder input
         dec_tokenizer = self.create_tokenizer(train[:, 1])
         dec_seq_length = self.find_seq_length(train[:, 1])
         dec_vocab_size = self.find_vocab_size(dec_tokenizer, train[:, 1])
-        
+
         # Encode and pad the input sequences
         trainX = self.encode_and_pad(train[:, 0], enc_tokenizer, enc_seq_length)
         trainY = self.encode_and_pad(train[:, 1], dec_tokenizer, dec_seq_length)
-
+        
+        # Encode and pad the input sequences
         valX = self.encode_and_pad(val[:, 0], enc_tokenizer, enc_seq_length)
         valY = self.encode_and_pad(val[:, 1], dec_tokenizer, dec_seq_length)
 
@@ -83,3 +80,15 @@ class PrepareDataset:
         savetxt('./data/neural_translation/test_dataset.csv', test, fmt='%s')
 
         return trainX, trainY, valX, valY, train, val, enc_seq_length, dec_seq_length, enc_vocab_size, dec_vocab_size
+
+if __name__ == "__main__":
+    dataset = PrepareDataset()
+    train_batchX, train_batchY, valX, valY, train_orig, val_orig, enc_seq_length, dec_seq_length, enc_vocab_size, dec_vocab_size = dataset('data/neural_translation/english-german-both.pkl')
+    print(f'Train X: {train_batchX[0]}')
+    print(f'Train Y: {train_batchY[0]}')
+    encoder_input_train = train_batchX
+    print(f'encoder input : {encoder_input_train[0]}')
+    decoder_input_train = train_batchY[:, :-1]
+    print(f'decoder input: {decoder_input_train[0]}')
+    decoder_output_train = train_batchY[:, 1:]
+    print(f'decoder output: {decoder_output_train[0]}')

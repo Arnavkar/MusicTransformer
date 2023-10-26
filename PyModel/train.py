@@ -10,6 +10,7 @@ import tensorflow as tf
 from Transformer.params import baseline_test_params, midi_test_params_v1, Params
 from pickle import dump
 import datetime
+import os
 
 # Defining the loss function
 def loss_fcn(target, prediction):
@@ -72,11 +73,11 @@ def train_step(encoder_input, decoder_input, decoder_output):
  
         # Run the forward pass of the model to generate a prediction
         prediction = transformer(encoder_input, decoder_input, training=True)
-        print(f"encoder input: {encoder_input}, decoder input: {decoder_input}, prediction: {prediction}, decoder output: {decoder_output}")
+        #print(f"encoder input: {encoder_input}, decoder input: {decoder_input}, prediction: {prediction}, decoder output: {decoder_output}")
  
         # Compute the training loss
         loss = loss_fcn(decoder_output, prediction)
-        print(f"loss: {loss}")
+        #print(f"loss: {loss}")
  
         # Compute the training accuracy
         accuracy = accuracy_fcn(decoder_output, prediction)
@@ -110,7 +111,7 @@ for epoch in range(p.epochs):
         decoder_input_val = val_batchY[:, :-1]
         decoder_output_val = val_batchY[:, 1:]
 
-        train_step(encoder_input_train, decoder_input_train, decoder_output_train)
+        #train_step(encoder_input_train, decoder_input_train, decoder_output_train)
 
         
     prediction = transformer(encoder_input_val, decoder_input_val, training = False)
@@ -121,7 +122,7 @@ for epoch in range(p.epochs):
     print("Epoch %d: Training Loss %.4f, Training Accuracy %.4f, Validation Loss %.4f" % (epoch + 1, train_loss.result(), train_accuracy.result(), val_loss.result()))
  
     # Save a checkpoint after every five epochs
-    if (epoch + 1) % 1 == 0:
+    if (epoch + 1) % 5 == 0:
         save_path = ckpt_manager.save()
         print("Saved checkpoint at epoch %d" % (epoch + 1))
 
@@ -129,7 +130,6 @@ for epoch in range(p.epochs):
 
         train_loss_dict[epoch] = train_loss.result()
         val_loss_dict[epoch] = val_loss.result()
- 
 # Save the training loss values
 with open('./train_loss.pkl', 'wb') as file:
     dump(train_loss_dict, file)
@@ -139,5 +139,4 @@ with open('./val_loss.pkl', 'wb') as file:
     dump(val_loss_dict, file)
  
 print("Training Complete! Total time taken: %.2fs" % (time() - start_time))   
-print(tf.train.list_variables(ckpt_manager.latest_checkpoint) )
 

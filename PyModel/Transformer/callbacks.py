@@ -1,6 +1,5 @@
 import tensorflow as tf
 
-
 class SaveCallback(tf.keras.callbacks.Callback):
     def __init__(self, save_path):
         super(SaveCallback, self).__init__()

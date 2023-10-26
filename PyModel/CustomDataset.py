@@ -3,7 +3,6 @@ import json
 import random
 import numpy as np
 import pickle
-import Transformer.params as p
 from Transformer.params import baseline_test_params, midi_test_params_v1, Params
 
 
@@ -88,41 +87,61 @@ class CustomDataset():
 
         return data
     
+    def extract_sequence(self, fname, length):
+        with open(fname, 'rb') as f:
+            data = pickle.load(f)
+        if length <= len(data):
+            start = random.randrange(0,len(data) - length)
+            data = data[start:start + length]
+            data = np.append(data, self.params.token_eos)
+        else:
+            #concat EOS tokens to the end of the sequence
+            data = np.append(data, self.params.token_eos)
+            while len(data) < length:
+                data = np.append(data, self.params.pad_token)
+        return data
+    
     def slide_seq2seq_batch(self, batch_size, length, num_tokens_predicted=1, mode='train'):
         assert num_tokens_predicted <= length, "Num tokens predicted must be less than length of sequence provided!"
         data = self.get_batch(batch_size, length+num_tokens_predicted, mode)
-        x = data[:, :-num_tokens_predicted]
+
+        #Accounting for the eos token added in extract_sequence
+        x = data[:, :-num_tokens_predicted-1]
         y = data[:, num_tokens_predicted:]
+
+        x=np.insert(x,0,self.params.token_sos,axis = 1)
+        x=np.insert(x,len(x[0]),self.params.token_eos, axis = 1)
+
+        #no need to add an additonal eos token, already add in extract_sequence
+        y=np.insert(y,0,self.params.token_sos,axis=1)
+        if self.params.debug:
+            return data, x, y
         return x, y
-    
-    def extract_sequence(self, fname, max_length=None):
-        with open(fname, 'rb') as f:
-            data = pickle.load(f)
-        if max_length is not None:
-            if max_length <= len(data):
-                start = random.randrange(0,len(data) - max_length)
-                data = data[start:start + max_length]
-            else:
-                #concat EOS tokens to the end of the sequence
-                data = np.append(data, self.params.token_eos)
-                while len(data) < max_length:
-                    data = np.append(data, self.params.pad_token)
-        return data
 
 if __name__ == "__main__":
-    dataset = CustomDataset()
-    x,y = dataset.slide_seq2seq_batch(1, 5)
     p = Params(midi_test_params_v1)
-    found_dict = {}
-    for _ in range(20):
-        data = dataset.get_batch(1000, 2048, 'train')
+    dataset = CustomDataset(p)
+    data, train_batchX,train_batchY = dataset.slide_seq2seq_batch(2, 5, num_tokens_predicted=1)
+    print(f'data:{data}')
+    print(f'Train X: {train_batchX}')
+    print(f'Train Y: {train_batchY}')
+    encoder_input_train = train_batchX
+    print(f'encoder input : {encoder_input_train}')
+    decoder_input_train = train_batchY[:, :-1]
+    print(f'decoder input: {decoder_input_train}')
+    decoder_output_train = train_batchY[:, 1:]
+    print(f'decoder output: {decoder_output_train}')
 
-        for vec in data:
-            for value in vec:
-                if value not in found_dict:
-                    found_dict[value] = 1
+    # found_dict = {}
+    # for _ in range(20):
+    #     data = dataset.get_batch(1000, 2048, 'train')
 
-    print(sorted(list(found_dict.keys())))
+    #     for vec in data:
+    #         for value in vec:
+    #             if value not in found_dict:
+    #                 found_dict[value] = 1
+
+    # print(sorted(list(found_dict.keys())))
     # numfiles = len(dataset.fileDict)
     # print(f"Number of files: {numfiles}")
     # total_events = 0
@@ -134,3 +153,6 @@ if __name__ == "__main__":
 
     # avg_event = total_events / numfiles
     # print(f"Average number of events per file: {avg_event}")
+
+    #Grab a simple file and sample it accordingly to grab more from each file 
+    
