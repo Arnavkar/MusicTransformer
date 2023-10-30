@@ -1,4 +1,8 @@
 import tensorflow as tf
+from tensorflow.keras.losses import sparse_categorical_crossentropy
+from tensorflow import  math, reduce_sum, cast, equal, argmax, float32
+
+
 
 def check_shape(name,tensor,expectedshape):
         assert tensor.shape == expectedshape, f" {name} expected shape {expectedshape}, shape: {tensor.shape}"

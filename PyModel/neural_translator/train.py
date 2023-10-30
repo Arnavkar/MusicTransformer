@@ -9,6 +9,7 @@ from time import time
 import tensorflow as tf
 from Transformer.params import baseline_test_params, Params
 from pickle import dump
+from tqdm.notebook import tqdm, trange
 
 # Defining the loss function
 def loss_fcn(target, prediction):

@@ -27,7 +27,8 @@ baseline_test_params= {
     "epsilon":1e-9,
     "encoder_seq_len": 5,
     "decoder_seq_len": 5,
-    "debug":True
+    "debug":True,
+    "l_r":0.001,
 }
 
 
@@ -37,7 +38,8 @@ midi_test_params_v1 = {
     "key_dim": 64,  # Dimensionality of linearly projected queries and keys
     "value_dim": 64,  # Dimensionality of linearly projected values
     "model_dim":512,  # Dimensionality of the model final output
-    "batch_size" :4,  # Batch size from the training process
+    "batch_size" :30,  # Batch size from the training process
+    "l_r":0.001,
     "feed_forward_dim" : 2048,
     "dropout_rate" : 0.1,
     "encoder_vocab_size" : event_dim,
@@ -48,12 +50,13 @@ midi_test_params_v1 = {
     "beta_1":0.9,
     "beta_2":0.98,
     "epsilon":1e-9,
-    "encoder_seq_len": 2048,
-    "decoder_seq_len": 2048,
+    "encoder_seq_len": 1042,
+    "decoder_seq_len": 1042,
     "pad_token" : 0,
     "token_sos" : 1,
     "token_eos" : 2,
-    "debug":True
+    "debug":True,
+
 }
 
 
@@ -66,6 +69,9 @@ class Params:
         all_attrs = vars(self)
         for key, value in all_attrs.items():
             print(key, ":", value)
+
+    def get_params(self):
+        return vars(self)
     
     def __repr__(self):
         return '<class Params has variables: {}>'.format(vars(self))

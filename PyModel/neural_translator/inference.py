@@ -10,9 +10,9 @@ from Transformer.LRSchedule import LRScheduler
 p = Params(baseline_test_params)
 p.dropout_rate = 0
 p.encoder_seq_len = 7
-p.decoder_seq_len = 11
-p.encoder_vocab_size = 2205
-p.decoder_vocab_size = 3448
+p.decoder_seq_len = 12
+p.encoder_vocab_size = 2215
+p.decoder_vocab_size = 3466
 
 #set dropout to 0 for inference
 inference = TransformerModel(p)
@@ -35,13 +35,10 @@ class Translator(tf.Module):
         dec_tokenizer = self.load_tokenizer('neural_translator/dec_tokenizer.pkl')
  
         # Prepare the input sentence by tokenizing, padding and converting to tensor
-        print(sentence)
         encoder_input = enc_tokenizer.texts_to_sequences(sentence)
-        print(encoder_input)
         encoder_input = pad_sequences(encoder_input, maxlen=p.encoder_seq_len, padding='post')
-        print(encoder_input)
         encoder_input = tf.convert_to_tensor(encoder_input, dtype=tf.int64)
-        print(encoder_input)
+        print(encoder_input.shape)
  
         # Prepare the output <START> token by tokenizing, and converting to tensor
         output_start = dec_tokenizer.texts_to_sequences(["<START>"])
@@ -50,17 +47,20 @@ class Translator(tf.Module):
         # Prepare the output <EOS> token by tokenizing, and converting to tensor
         output_end = dec_tokenizer.texts_to_sequences(["<EOS>"])
         output_end = tf.convert_to_tensor(output_end[0], dtype=tf.int64)
+        print(output_end)
  
         # Prepare the output array of dynamic size
         decoder_output = tf.TensorArray(dtype=tf.int64, size=0, dynamic_size=True)
         decoder_output = decoder_output.write(0, output_start) 
+        print(decoder_output.stack().shape)
         
         for i in range(p.decoder_seq_len):
  
             # Predict an output token
             prediction = self.transformer(encoder_input, tf.transpose(decoder_output.stack()), training=False)
- 
+            print(prediction.shape)
             prediction = prediction[:, -1, :]
+            print(prediction.shape)
  
             # Select the prediction with the highest score
             predicted_id = tf.argmax(prediction, axis=-1)

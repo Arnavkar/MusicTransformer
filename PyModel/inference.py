@@ -1,75 +1,78 @@
 from Transformer.model import TransformerModel
 import tensorflow as tf
-from Transformer.params import baseline_test_params, midi_test_params_v1, Params
 from pickle import load
 from keras.preprocessing.sequence import pad_sequences
 from CustomDataset import CustomDataset
 import numpy as np
+import argparse
+import json
+from Transformer.params import Params
 
 class Improvisor(tf.Module):
     def __init__(self,transformer_model,p:Params, **kwargs):
         super(Improvisor, self).__init__(**kwargs)
-        self.transformer = transformer_model
+        self.model = transformer_model
         self.params = p
     
     def __call__(self, input_sequence):
+        input_sequence[0] = [self.params.token_sos] + input_sequence[0] + [self.params.token_eos]
 
-        # Append start and end of string tokens to the input sentence
-        input_sequence = np.insert(input_sequence, 0, self.params.token_sos, axis = 1)
-        input_sequence = np.insert(input_sequence, len(input_sequence[0]), self.params.token_eos, axis = 1)
-        print(input_sequence)
-        encoder_input = pad_sequences(input_sequence, maxlen=p.encoder_seq_len, padding='post')
-        print(encoder_input)
+        encoder_input = pad_sequences(input_sequence, maxlen=self.params.encoder_seq_len, padding='post')
         encoder_input = tf.convert_to_tensor(encoder_input, dtype=tf.int64)
-        print(encoder_input)
 
-        # # Prepare the output array of dynamic size
-        # decoder_output = tf.TensorArray(dtype=tf.int64, size=0, dynamic_size=True)
-        # decoder_output = decoder_output.write(0, self.params.token_sos) 
+        start_token = tf.convert_to_tensor([self.params.token_sos],dtype=tf.int64)
+        decoder_output = tf.TensorArray(dtype=tf.int64, size=0, dynamic_size=True)
+        decoder_output = decoder_output.write(0,start_token)
+        
+        
+        i = 0
+        while True:
+            prediction = self.model(encoder_input, tf.transpose(decoder_output.stack()), False)
+            prediction = prediction[:, -1, :]
 
-        # for i in range(p.decoder_seq_len):
-        #     # Predict an output token
-        #     prediction = self.transformer(encoder_input, tf.transpose(decoder_output.stack()), training=False)
- 
-        #     prediction = prediction[:, -1, :]
- 
-        #     # Select the prediction with the highest score
-        #     predicted_id = tf.argmax(prediction, axis=-1)
-        #     predicted_id = predicted_id[0][tf.newaxis]
- 
-        #     # Write the selected prediction to the output array at the next available index
-        #     decoder_output = decoder_output.write(i + 1, predicted_id)
- 
-        #     # Break if an <EOS> token is predicted
-        #     if predicted_id == output_end:
-        #         break
- 
-        # output = tf.transpose(decoder_output.stack())[0]
-        # output = output.numpy()
- 
-        # output_str = []
- 
-        # # Decode the predicted tokens into an output string
-        # for i in range(output.shape[0]):
- 
-        #     key = output[i]
-        #     #print(dec_tokenizer.index_word[key])
-        #     output_str.append(dec_tokenizer.index_word[key])
- 
-        # return output_str
+            # Select the prediction with the highest score
+            predicted_id = tf.argmax(prediction, axis=-1)
+            predicted_id = predicted_id[0][tf.newaxis]
+
+            # Write the selected prediction to the output array at the next available index
+            decoder_output = decoder_output.write(i + 1, predicted_id)
+            # Break if an <EOS> token is predicted
+            if predicted_id == self.params.token_eos:
+                break
+            i+=1
+
+        output = tf.transpose(decoder_output.stack())[0]
+        decoder_output = decoder_output.mark_used()
+        output = output.numpy()
+        
+        return output[len(input_sequence[0])-2:]
+
+
 
 if __name__ == '__main__':
-    p = Params(midi_test_params_v1)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-n',"--model_name", type=str,required= True)
+    args = parser.parse_args()
+
+    model_params = json.load(open('./models/' + args.model_name + '/params.json', 'rb'))
+    p = Params(model_params)
     dataset = CustomDataset(p)
+    #instantiate model
+    model = TransformerModel(p)
+    checkpoint = tf.train.Checkpoint(model=model, optimizer=model.optimizer)
+    latest_checkpoint = tf.train.latest_checkpoint('./models/' + args.model_name + "/checkpoints")    
+    print(f"Latest Checkpoint path: {latest_checkpoint}")
+    #Add expect_partial for lazy creation of weights
+    checkpoint.restore(latest_checkpoint).expect_partial()
 
-    #set dropout to 0 for inference
-    p.dropout_rate = 0
+    improvisor = Improvisor(model,p)
 
-    inference = TransformerModel(p)
-    #Request sequence size from test dataset
+    test_batchX,test_batchY = dataset.slide_seq2seq_batch(1, p.encoder_seq_len, 1, 'test')
+    #extract a test sequence of the first 20 elements
+    test_sequence = list(test_batchX[0][1:20])
+    print(f'test_sequence: {test_sequence}')
+    output_sequence = improvisor([test_sequence])
+    print(f'output_sequence: {output_sequence}')
 
-    input_seq_len = 30
-    test_batchX,test_batchY = dataset.slide_seq2seq_batch(1, input_seq_len, 1, 'test')
-    inference.load_weights('./weights/wghts50.ckpt').expect_partial()
-    improv = Improvisor(inference, p)
-    improv(test_batchX)
+
+

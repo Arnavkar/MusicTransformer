@@ -4,7 +4,7 @@ import random
 import numpy as np
 import pickle
 from Transformer.params import baseline_test_params, midi_test_params_v1, Params
-
+import tensorflow as tf
 
 '''
 Subclasses Kera Sequence object, must implement __getitem__ and __len__ methods
@@ -24,6 +24,7 @@ class CustomDataset():
         #self.partition_by_duration()
         self.partition_by_filecount()
         self.params = p
+        self.batch_size = p.batch_size
         #self.num_steps = self.calculate_steps()
     
     def get_maestroJSON(self, path="./data/raw/maestro-v3.0.0.json") -> list:
@@ -115,6 +116,15 @@ class CustomDataset():
         #no need to add an additonal eos token, already add in extract_sequence
         y=np.insert(y,0,self.params.token_sos,axis=1)
         return x, y
+    
+    def get_dataset_from_file(self, fname):
+        with open(fname, 'rb') as f:
+            data = pickle.load(f)
+        return tf.keras.utils.timeseries_dataset_from_array(data, 
+                                                            None,
+                                                            sequence_length = self.params.seq_len, 
+                                                            shuffle=True)
+        return data
 
 if __name__ == "__main__":
     p = Params(midi_test_params_v1)
