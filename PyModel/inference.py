@@ -7,6 +7,8 @@ import numpy as np
 import argparse
 import json
 from Transformer.params import Params
+from midi_neural_preprocessor.processor import decode_midi
+import os
 
 class Improvisor(tf.Module):
     def __init__(self,transformer_model,p:Params, **kwargs):
@@ -70,9 +72,16 @@ if __name__ == '__main__':
     test_batchX,test_batchY = dataset.slide_seq2seq_batch(1, p.encoder_seq_len, 1, 'test')
     #extract a test sequence of the first 20 elements
     test_sequence = list(test_batchX[0][1:20])
+    if not os.path.exists('./samples/'):
+        os.mkdir('samples')
     print(f'test_sequence: {test_sequence}')
+    decode_midi(test_sequence,file_path='samples/input_test.mid')
     output_sequence = improvisor([test_sequence])
     print(f'output_sequence: {output_sequence}')
+    decode_midi(output_sequence,file_path='samples/output_test.mid')
+
+
+
 
 
 
