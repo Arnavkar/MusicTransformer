@@ -47,7 +47,7 @@ class Improvisor(tf.Module):
         decoder_output = decoder_output.mark_used()
         output = output.numpy()
         
-        return output[len(input_sequence[0])-2:]
+        return output
 
 
 
@@ -71,12 +71,12 @@ if __name__ == '__main__':
 
     test_batchX,test_batchY = dataset.slide_seq2seq_batch(1, p.encoder_seq_len, 1, 'test')
     #extract a test sequence of the first 20 elements
-    test_sequence = list(test_batchX[0][1:20])
+    test_sequence = list(test_batchX[0][0:600])
     if not os.path.exists('./samples/'):
         os.mkdir('samples')
     print(f'test_sequence: {test_sequence}')
     decode_midi(test_sequence,file_path='samples/input_test.mid')
-    output_sequence = improvisor([test_sequence])
+    output_sequence = list(improvisor([test_sequence]))
     print(f'output_sequence: {output_sequence}')
     decode_midi(output_sequence,file_path='samples/output_test.mid')
 
