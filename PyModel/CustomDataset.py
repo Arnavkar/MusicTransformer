@@ -11,11 +11,13 @@ from numba import jit, cuda
 '''
 Subclasses Kera Sequence object, must implement __getitem__ and __len__ methods
 
-__getitem__ returns a batch of data, where the batch size is the first dimension of the returned array
+__getitem__ returns a batch of data, where the batch size is the first dimension of the resturned array
+__
 '''
 
 class CustomDataset():
     def __init__(self,p:Params, path="./data/processed") -> None:
+        random.seed(237)
         self.maestroJSON = self.get_maestroJSON()
         self.fileDict = self.get_encoded_files(path)
         self.model_data = {
@@ -26,12 +28,15 @@ class CustomDataset():
         #self.partition_by_duration()
         self.params = p
         self.batch_size = p.batch_size
-        self.dataset_stats = {
-            "train":{},
-            "validation":{},
-            "test":{}
-        }
         self.partition_by_filecount()
+
+        if self.params.record_data_stats:
+            self.dataset_stats = {
+                "train":{},
+                "validation":{},
+                "test":{}
+            }
+            self.set_up_stats()
 
         #self.num_steps = self.calculate_steps()
     
@@ -81,23 +86,7 @@ class CustomDataset():
         self.model_data["train"] = train
         self.model_data["validation"] = validation
         self.model_data["test"] = test
-
-        if self.params.record_data_stats:
-            stats_object = {
-                "extracted_sequences":[],
-                "min_idx":float('inf'),
-                "max_idx":-1,
-                "visit_count":-1
-            }
-
-            for path in train:
-                self.dataset_stats["train"][path] = stats_object.copy()
-
-            for path in validation:
-                self.dataset_stats["validation"][path] = stats_object.copy()
-
-            for path in test:
-                self.dataset_stats["test"][path] = stats_object.copy()
+            
     
     #TODO: get_batch and slide_seq2seq_batch are from separate code repo, maybe use an alternative batch method??
     #Does this not present the problem of possibly training on the exact same sequence more than one, with no guarantee of using all the training data? 
@@ -119,7 +108,10 @@ class CustomDataset():
         with open(fname, 'rb') as f:
             data = pickle.load(f)
         if length <= len(data):
-            start = random.randrange(0,len(data) - length)
+            if mode == "test":
+                start = 0
+            else:
+                start = random.randrange(0,len(data) - length)
             data = data[start:start + length]
             data = np.append(data, self.params.token_eos)
         else:
@@ -128,11 +120,12 @@ class CustomDataset():
             data = np.append(data, self.params.token_eos)
             while len(data) < length+1:
                 data = np.append(data, self.params.pad_token)
+        
         if self.params.record_data_stats:
             self.record_stats(fname, start, length, len(data),mode)
+
         return data
     
-    @jit(target_backend='cuda') 
     def record_stats(self, fname, start, seq_len, data_len, mode):
         # stats_object = {
         #     "extracted_sequences":[],
@@ -180,6 +173,22 @@ class CustomDataset():
             #     else:
             #         print("ERROR: Should not be here")
             self.dataset_stats[mode][fname]["visit_count"] +=1
+    
+    def set_up_stats(self):
+        stats_object = {
+                "extracted_sequences":[],
+                "min_idx":float('inf'),
+                "max_idx":-1,
+                "visit_count":-1
+            }
+        for path in self.model_data["train"]:
+            self.dataset_stats["train"][path] = stats_object.copy()
+
+        for path in self.model_data["validation"]:
+            self.dataset_stats["validation"][path] = stats_object.copy()
+
+        for path in self.model_data["test"]:
+            self.dataset_stats["test"][path] = stats_object.copy()
 
     def slide_seq2seq_batch(self, batch_size, length, num_tokens_predicted=1, mode='train'):
         assert num_tokens_predicted <= length, "Num tokens predicted must be less than length of sequence provided!"
@@ -203,30 +212,31 @@ class CustomDataset():
                                                             shuffle=True)
 
 if __name__ == "__main__":
-    p = Params(midi_test_params_v1)
-    p.record_data_stats = True
-    p.encoder_seq_len = p.decoder_seq_len = 50
-    dataset = CustomDataset(p)
+    '''stats test, using code from training loop'''
+    # p = Params(midi_test_params_v1)
+    # p.record_data_stats = True
+    # p.encoder_seq_len = p.decoder_seq_len = 50
+    # dataset = CustomDataset(p)
 
-    #stats test, using code from training loop
+    
 
-    for step in range(len(dataset.fileDict) // p.batch_size):
-        train_batchX,train_batchY = dataset.slide_seq2seq_batch(p.batch_size, p.encoder_seq_len, 1, 'train')
+    # for step in range(len(dataset.fileDict) // p.batch_size):
+    #     train_batchX,train_batchY = dataset.slide_seq2seq_batch(p.batch_size, p.encoder_seq_len, 1, 'train')
 
     # with open("./statsv2.json", 'w') as f:
     #     json.dump(dataset.dataset_stats, f, indent=4)
-    
-    print("collecting averages")
-    unique_avg = 0
-    count = 0
-    for file_name, train_file_stats in dataset.dataset_stats["train"].items():
-        if train_file_stats["visit_count"] > 0:
-            unique_avg += 1
-        count += 1
-    unique_avg /= count
-    print(f"Running average of files covered after 1 epoch: {unique_avg}")
 
+    # print("collecting averages")
+    # unique_avg = 0
+    # count = 0
+    # for file_name, train_file_stats in dataset.dataset_stats["train"].items():
+    #     if train_file_stats["visit_count"] > 0:
+    #         unique_avg += 1
+    #     count += 1
+    # unique_avg /= count
+    # print(f"Running average of files covered after 1 epoch: {unique_avg}")
 
+    '''Testing out slide_seq2seq - checking average number of events per midi file'''
     # print(dataset)
     # train_batchX,train_batchY = dataset.slide_seq2seq_batch(64, 2048, 1,'train')
     # print(f'Train X: {train_batchX}')

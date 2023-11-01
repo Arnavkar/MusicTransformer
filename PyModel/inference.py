@@ -71,14 +71,19 @@ if __name__ == '__main__':
 
     test_batchX,test_batchY = dataset.slide_seq2seq_batch(1, p.encoder_seq_len, 1, 'test')
     #extract a test sequence of the first 20 elements
-    test_sequence = list(test_batchX[0][0:25])
+    test_sequence = list(test_batchX[0][0:300])
     if not os.path.exists('./samples/'):
         os.mkdir('samples')
+        
     print(f'test_sequence: {test_sequence}')
     decode_midi(test_sequence,file_path='samples/input_test.mid')
+
     output_sequence = list(improvisor([test_sequence]))
     print(f'output_sequence: {output_sequence}')
     decode_midi(output_sequence,file_path='samples/output_test.mid')
+
+    print(f'actual_sequence: {test_batchX[0]}')
+    decode_midi(test_batchX[0],file_path='samples/actual_test.mid')
 
 
 
