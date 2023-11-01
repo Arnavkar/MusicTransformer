@@ -56,6 +56,7 @@ midi_test_params_v1 = {
     "token_sos" : 1,
     "token_eos" : 2,
     "debug":True,
+    "record_data_stats":False,
 
 }
 

@@ -136,7 +136,7 @@ if __name__ == "__main__":
         json.dump(train_loss_dict,file)
     
     # Save the validation loss values
-    with open(base_path+'val_loss.pkl', 'w') as file:
+    with open(base_path+'val_loss.json', 'w') as file:
         json.dump(val_loss_dict, file)
 
     print("Training Complete! Total time taken: %.2fs" % (time() - start_time))   

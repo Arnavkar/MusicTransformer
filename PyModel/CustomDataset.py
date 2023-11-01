@@ -5,6 +5,8 @@ import numpy as np
 import pickle
 from Transformer.params import baseline_test_params, midi_test_params_v1, Params
 import tensorflow as tf
+import json
+from numba import jit, cuda
 
 '''
 Subclasses Kera Sequence object, must implement __getitem__ and __len__ methods
@@ -22,9 +24,15 @@ class CustomDataset():
             "test": []
         }
         #self.partition_by_duration()
-        self.partition_by_filecount()
         self.params = p
         self.batch_size = p.batch_size
+        self.dataset_stats = {
+            "train":{},
+            "validation":{},
+            "test":{}
+        }
+        self.partition_by_filecount()
+
         #self.num_steps = self.calculate_steps()
     
     def get_maestroJSON(self, path="./data/raw/maestro-v3.0.0.json") -> list:
@@ -73,6 +81,23 @@ class CustomDataset():
         self.model_data["train"] = train
         self.model_data["validation"] = validation
         self.model_data["test"] = test
+
+        if self.params.record_data_stats:
+            stats_object = {
+                "extracted_sequences":[],
+                "min_idx":float('inf'),
+                "max_idx":-1,
+                "visit_count":-1
+            }
+
+            for path in train:
+                self.dataset_stats["train"][path] = stats_object.copy()
+
+            for path in validation:
+                self.dataset_stats["validation"][path] = stats_object.copy()
+
+            for path in test:
+                self.dataset_stats["test"][path] = stats_object.copy()
     
     #TODO: get_batch and slide_seq2seq_batch are from separate code repo, maybe use an alternative batch method??
     #Does this not present the problem of possibly training on the exact same sequence more than one, with no guarantee of using all the training data? 
@@ -84,13 +109,13 @@ class CustomDataset():
         files = random.sample(files, batch_size)
 
         #from each file, extract a random sequence of length
-        data = [self.extract_sequence(file, length) for file in files]
+        data = [self.extract_sequence(file, length, mode) for file in files]
         
         for array in data:
             assert len(array) == length+1, f"Length of array {len(array)} is not equal to length {length+2}"
         return np.array(data,int)
     
-    def extract_sequence(self, fname, length):
+    def extract_sequence(self, fname, length, mode):
         with open(fname, 'rb') as f:
             data = pickle.load(f)
         if length <= len(data):
@@ -98,12 +123,64 @@ class CustomDataset():
             data = data[start:start + length]
             data = np.append(data, self.params.token_eos)
         else:
+            start = 0
             #concat EOS tokens to the end of the sequence
             data = np.append(data, self.params.token_eos)
             while len(data) < length+1:
                 data = np.append(data, self.params.pad_token)
+        if self.params.record_data_stats:
+            self.record_stats(fname, start, length, len(data),mode)
         return data
     
+    @jit(target_backend='cuda') 
+    def record_stats(self, fname, start, seq_len, data_len, mode):
+        # stats_object = {
+        #     "extracted_sequences":[],
+        #     "min_idx":-1,
+        #     "max_idx":-1,
+        #     "percent_covered":-1
+        # }
+        #print(f"Recording stats for {fname} in {mode} mode with start {start} and seq_len {seq_len}")
+        if fname not in self.dataset_stats[mode]:
+            print(f"Stats object for {fname} not found, creating new stats object")
+            stats = {
+                "extracted_sequences":[],
+                "min_idx":-1,
+                "max_idx":-1,
+                "visit_count":-1
+            }
+            self.dataset_stats[mode][fname] = stats
+
+        extracted_sequences = self.dataset_stats[mode][fname]["extracted_sequences"]
+
+        if len(extracted_sequences) == 0:
+            self.dataset_stats[mode][fname]["min_idx"] = start
+            self.dataset_stats[mode][fname]["max_idx"] = start + seq_len
+            extracted_sequences.append((start, start + seq_len))
+            self.dataset_stats[mode][fname]["visit_count"] = 1
+
+        else:
+            self.dataset_stats[mode][fname]["min_idx"] = min(self.dataset_stats[mode][fname]["min_idx"], start)
+            self.dataset_stats[mode][fname]["max_idx"] = max(self.dataset_stats[mode][fname]["max_idx"], start + seq_len)
+            extracted_sequences.append((start, start + seq_len))
+            # for idx_pair in extracted_sequences:
+            #     if start >= idx_pair[0] and start + seq_len <= idx_pair[1]:
+            #         return
+            #     elif start <= idx_pair[0] and start + seq_len >= idx_pair[1]:
+            #         idx_pair[0] = start
+            #         idx_pair[1] = start + seq_len
+            #     elif start <= idx_pair[0] and start + seq_len <= idx_pair[1] and start + seq_len >= idx_pair[0]:
+            #         idx_pair[0] = start
+            #     elif start >= idx_pair[0] and start <= idx_pair[1] and start + seq_len >= idx_pair[1]:
+            #         idx_pair[1] = start + seq_len
+            #     elif start > idx_pair[1]:
+            #         extracted_sequences.append([start, start + seq_len])
+            #     elif start + seq_len < idx_pair[0]:
+            #         extracted_sequences.append([start, start + seq_len])
+            #     else:
+            #         print("ERROR: Should not be here")
+            self.dataset_stats[mode][fname]["visit_count"] +=1
+
     def slide_seq2seq_batch(self, batch_size, length, num_tokens_predicted=1, mode='train'):
         assert num_tokens_predicted <= length, "Num tokens predicted must be less than length of sequence provided!"
         data = self.get_batch(batch_size, length, mode)
@@ -124,13 +201,34 @@ class CustomDataset():
                                                             None,
                                                             sequence_length = self.params.seq_len, 
                                                             shuffle=True)
-        return data
 
 if __name__ == "__main__":
     p = Params(midi_test_params_v1)
+    p.record_data_stats = True
+    p.encoder_seq_len = p.decoder_seq_len = 50
     dataset = CustomDataset(p)
+
+    #stats test, using code from training loop
+
+    for step in range(len(dataset.fileDict) // p.batch_size):
+        train_batchX,train_batchY = dataset.slide_seq2seq_batch(p.batch_size, p.encoder_seq_len, 1, 'train')
+
+    # with open("./statsv2.json", 'w') as f:
+    #     json.dump(dataset.dataset_stats, f, indent=4)
+    
+    print("collecting averages")
+    unique_avg = 0
+    count = 0
+    for file_name, train_file_stats in dataset.dataset_stats["train"].items():
+        if train_file_stats["visit_count"] > 0:
+            unique_avg += 1
+        count += 1
+    unique_avg /= count
+    print(f"Running average of files covered after 1 epoch: {unique_avg}")
+
+
     # print(dataset)
-    train_batchX,train_batchY = dataset.slide_seq2seq_batch(64, 2048, 1,'train')
+    # train_batchX,train_batchY = dataset.slide_seq2seq_batch(64, 2048, 1,'train')
     # print(f'Train X: {train_batchX}')
     # print(f'Train Y: {train_batchY}')
     # encoder_input_train = train_batchX
@@ -150,30 +248,30 @@ if __name__ == "__main__":
     #                 found_dict[value] = 1
     # print(sorted(list(found_dict.keys())))
 
-    numfiles = len(dataset.fileDict)
-    print(f"Number of files: {numfiles}")
-    total_events = 0
-    maxlen = 0
-    minlen = float('inf')
-    lengths = []
-    for file in dataset.fileDict.values():
-        with open(file, 'rb') as f:
-            encoded_midi_data = pickle.load(f)
-            length = len(encoded_midi_data)
-            lengths.append(length)
-            if length < minlen: 
-                minlen = length
+    # numfiles = len(dataset.fileDict)
+    # print(f"Number of files: {numfiles}")
+    # total_events = 0
+    # maxlen = 0
+    # minlen = float('inf')
+    # lengths = []
+    # for file in dataset.fileDict.values():
+    #     with open(file, 'rb') as f:
+    #         encoded_midi_data = pickle.load(f)
+    #         length = len(encoded_midi_data)
+    #         lengths.append(length)
+    #         if length < minlen: 
+    #             minlen = length
             
-            if length > maxlen: 
-                maxlen = length
+    #         if length > maxlen: 
+    #             maxlen = length
 
-            total_events += length
+    #         total_events += length
 
-    avg_event = total_events / numfiles
-    print(f"Total number of events: {total_events}")
-    print(f"Average number of events per file: {avg_event}")
-    print(f"Max length: {maxlen}")
-    print(f"Min length: {minlen}")
+    # avg_event = total_events / numfiles
+    # print(f"Total number of events: {total_events}")
+    # print(f"Average number of events per file: {avg_event}")
+    # print(f"Max length: {maxlen}")
+    # print(f"Min length: {minlen}")
     #print(f"lengtht_lis: {sorted(lengths)}")
 
     #Grab a simple file and sample it accordingly to grab more from each file 

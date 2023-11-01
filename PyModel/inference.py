@@ -71,7 +71,7 @@ if __name__ == '__main__':
 
     test_batchX,test_batchY = dataset.slide_seq2seq_batch(1, p.encoder_seq_len, 1, 'test')
     #extract a test sequence of the first 20 elements
-    test_sequence = list(test_batchX[0][0:600])
+    test_sequence = list(test_batchX[0][0:25])
     if not os.path.exists('./samples/'):
         os.mkdir('samples')
     print(f'test_sequence: {test_sequence}')
