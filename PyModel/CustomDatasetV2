@@ -1,0 +1,11 @@
+import tensorflow as tf
+from Transformer.params import params
+
+class CustomDatasetV2(tf.keras.utils.Sequence):
+    def __init__(self, p:params, list_IDs, labels, shuffle=True):
+        'Initialization'
+        self.labels = labels
+        self.list_IDs = list_IDs
+        self.shuffle = shuffle
+        self.params = p
+        self.on_epoch_end()

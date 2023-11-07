@@ -3,10 +3,10 @@ import json
 import random
 import numpy as np
 import pickle
-from Transformer.params import baseline_test_params, midi_test_params_v1, Params
+from Transformer.params import midi_test_params_v2, Params
 import tensorflow as tf
 import json
-from numba import jit, cuda
+from numba import cuda, jit
 
 '''
 Subclasses Kera Sequence object, must implement __getitem__ and __len__ methods
@@ -25,7 +25,6 @@ class CustomDataset():
             "validation": [],
             "test": []
         }
-        #self.partition_by_duration()
         self.params = p
         self.batch_size = p.batch_size
         self.partition_by_filecount()
@@ -37,8 +36,6 @@ class CustomDataset():
                 "test":{}
             }
             self.set_up_stats()
-
-        #self.num_steps = self.calculate_steps()
     
     def get_maestroJSON(self, path="./data/raw/maestro-v3.0.0.json") -> list:
         with open(path) as f:
@@ -74,6 +71,7 @@ class CustomDataset():
         paths = list(self.fileDict.values())
         random.shuffle(paths)
 
+        #Split paths via list splicing into train, validation and test sets
         train = paths[:int(total_num_files * 0.8)]
         
         validation = paths[int(total_num_files * 0.8):int(total_num_files * 0.9)]
@@ -87,9 +85,7 @@ class CustomDataset():
         self.model_data["validation"] = validation
         self.model_data["test"] = test
             
-    
-    #TODO: get_batch and slide_seq2seq_batch are from separate code repo, maybe use an alternative batch method??
-    #Does this not present the problem of possibly training on the exact same sequence more than one, with no guarantee of using all the training data? 
+    #NOTE: Taken from Github implementation of Transformer - currently using construct tf_dataset_method
     def get_batch(self, batch_size, length, mode):
         #select files based on training mode
         files = self.model_data[mode]
@@ -104,20 +100,26 @@ class CustomDataset():
             assert len(array) == length+1, f"Length of array {len(array)} is not equal to length {length+2}"
         return np.array(data,int)
     
+    #NOTE: Taken from Github implementation of Transformer - currently using construct tf_dataset_method
     def extract_sequence(self, fname, length, mode):
+        #Grab a random sample of length len from a while
         with open(fname, 'rb') as f:
             data = pickle.load(f)
         if length <= len(data):
+            #If in test mode, always start from the beginning of the file, else start from a random index
             if mode == "test":
                 start = 0
             else:
                 start = random.randrange(0,len(data) - length)
+            #extract a sequence of length len from the file and append the EOS token to the end
             data = data[start:start + length]
             data = np.append(data, self.params.token_eos)
         else:
+            #if there is not enough data in the file, start from the beginning of the file
             start = 0
             #concat EOS tokens to the end of the sequence
             data = np.append(data, self.params.token_eos)
+            #pad the sequence with pad tokens until the length is equal to the length parameter
             while len(data) < length+1:
                 data = np.append(data, self.params.pad_token)
         
@@ -126,14 +128,8 @@ class CustomDataset():
 
         return data
     
+    #NOTE: Used to record statistics about get_batch and extract_sequence, both not in use currently
     def record_stats(self, fname, start, seq_len, data_len, mode):
-        # stats_object = {
-        #     "extracted_sequences":[],
-        #     "min_idx":-1,
-        #     "max_idx":-1,
-        #     "percent_covered":-1
-        # }
-        #print(f"Recording stats for {fname} in {mode} mode with start {start} and seq_len {seq_len}")
         if fname not in self.dataset_stats[mode]:
             print(f"Stats object for {fname} not found, creating new stats object")
             stats = {
@@ -156,24 +152,25 @@ class CustomDataset():
             self.dataset_stats[mode][fname]["min_idx"] = min(self.dataset_stats[mode][fname]["min_idx"], start)
             self.dataset_stats[mode][fname]["max_idx"] = max(self.dataset_stats[mode][fname]["max_idx"], start + seq_len)
             extracted_sequences.append((start, start + seq_len))
-            # for idx_pair in extracted_sequences:
-            #     if start >= idx_pair[0] and start + seq_len <= idx_pair[1]:
-            #         return
-            #     elif start <= idx_pair[0] and start + seq_len >= idx_pair[1]:
-            #         idx_pair[0] = start
-            #         idx_pair[1] = start + seq_len
-            #     elif start <= idx_pair[0] and start + seq_len <= idx_pair[1] and start + seq_len >= idx_pair[0]:
-            #         idx_pair[0] = start
-            #     elif start >= idx_pair[0] and start <= idx_pair[1] and start + seq_len >= idx_pair[1]:
-            #         idx_pair[1] = start + seq_len
-            #     elif start > idx_pair[1]:
-            #         extracted_sequences.append([start, start + seq_len])
-            #     elif start + seq_len < idx_pair[0]:
-            #         extracted_sequences.append([start, start + seq_len])
-            #     else:
-            #         print("ERROR: Should not be here")
+            for idx_pair in extracted_sequences:
+                if start >= idx_pair[0] and start + seq_len <= idx_pair[1]:
+                    return
+                elif start <= idx_pair[0] and start + seq_len >= idx_pair[1]:
+                    idx_pair[0] = start
+                    idx_pair[1] = start + seq_len
+                elif start <= idx_pair[0] and start + seq_len <= idx_pair[1] and start + seq_len >= idx_pair[0]:
+                    idx_pair[0] = start
+                elif start >= idx_pair[0] and start <= idx_pair[1] and start + seq_len >= idx_pair[1]:
+                    idx_pair[1] = start + seq_len
+                elif start > idx_pair[1]:
+                    extracted_sequences.append([start, start + seq_len])
+                elif start + seq_len < idx_pair[0]:
+                    extracted_sequences.append([start, start + seq_len])
+                else:
+                    print("ERROR: Should not be here")
             self.dataset_stats[mode][fname]["visit_count"] +=1
     
+    #NOTE: Used to record statistics about get_batch and extract_sequence, both not in use currently
     def set_up_stats(self):
         stats_object = {
                 "extracted_sequences":[],
@@ -190,6 +187,7 @@ class CustomDataset():
         for path in self.model_data["test"]:
             self.dataset_stats["test"][path] = stats_object.copy()
 
+    #NOTE: Taken from Github implementation of Transformer - currently using construct tf_dataset_method
     def slide_seq2seq_batch(self, batch_size, length, num_tokens_predicted=1, mode='train'):
         assert num_tokens_predicted <= length, "Num tokens predicted must be less than length of sequence provided!"
         data = self.get_batch(batch_size, length, mode)
@@ -203,23 +201,66 @@ class CustomDataset():
         y=np.insert(y,0,self.params.token_sos,axis=1)
         return x, y
     
-    def get_dataset_from_file(self, fname):
-        with open(fname, 'rb') as f:
-            data = pickle.load(f)
-        return tf.keras.utils.timeseries_dataset_from_array(data, 
-                                                            None,
-                                                            sequence_length = self.params.seq_len, 
-                                                            shuffle=True)
+    #Construct a tf dataset directly from the midi files                   
+    def construct_tf_dataset(self,mode,seq_len,stride = 1):
+        current_file_index = 0
+        current_note_index = 0
+        paths = self.model_data[mode]
+        x, y = [],[]
+        #while looping through list of files
+        while current_file_index < len(paths):
+            fp = paths[current_file_index]
+            # print(fp)
+            with open(fp, 'rb') as f: 
+                f = open(fp, 'rb')
+                test_data = pickle.load(f)
+
+            #while looping through each file, grab a sequence of length seq_len 
+            #stride sets the distance between each grabbed sequence
+            #This while loop ensures we don't grab sequences that are too short, they are discarded
+            while current_note_index + seq_len + 1 < len(test_data):
+                #grab sequence of 2 less tokens and add sos/eos tokens
+                end_index = current_note_index + seq_len - 2
+                sequence_x = test_data[current_note_index:end_index]
+                sequence_x = np.insert(sequence_x,0,self.params.token_sos)
+                sequence_x = np.append(sequence_x,self.params.token_eos)
+
+                #same as sequence_x but shifted by 1
+                sequence_y = test_data[current_note_index+1:end_index+1]
+                sequence_y = np.insert(sequence_y,0,self.params.token_sos)
+                sequence_y = np.append(sequence_y,self.params.token_eos)
+                x.append(sequence_x)
+                y.append(sequence_y)
+                current_note_index += stride
+
+            print(f'File {current_file_index} at path {fp} complete: {current_note_index} notes processed out of {len(test_data)}')
+            #move to next file
+            current_file_index += 1
+            current_note_index = 0
+        
+        assert len(x) == len(y), f"Length of x and y are not equal: {len(x)} != {len(y)}"
+        for i in range(len(x)):
+            assert len(x[i]) == len(y[i]), f"Length of x elem and y elem at {i} are not equal: {len(x[i])} != {len(y[i])}"
+            assert x[i][0] == self.params.token_sos, f"First token of x elem at {i} is not sos token: {x[i][0]} != {self.params.token_sos}"
+            assert y[i][0] == self.params.token_sos, f"First token of y elem at {i} is not sos token: {y[i][0]} != {self.params.token_sos}"
+            assert x[i][-1] == self.params.token_eos, f"Last token of x elem at {i} is not eos token: {x[i][-1]} != {self.params.token_eos}"
+            assert y[i][-1] == self.params.token_eos, f"Last token of y elem at {i} is not eos token: {y[i][-1]} != {self.params.token_eos}"
+            assert (x[i][2:-1] == y[i][1:-2]).all(), f"Sequence of x elem at {i} is not equal to sequence of y elem at {i}: {x[i][2:-1]} != {y[i][1:-2]}"
+
+        dataset = tf.data.Dataset.from_tensor_slices((x,y))
+        path = os.path.join("./data/tf_midi_data_" + mode)
+        tf.data.Dataset.save(dataset, path)
+        print(f"Dataset saved at {path}")
+
 
 if __name__ == "__main__":
+    '''Construct and load dataset witf tf.data.Dataset'''
+    p = Params(midi_test_params_v2)
+    dataset = CustomDataset(p)
+    dataset.construct_tf_dataset('train', p.encoder_seq_len, int(p.encoder_seq_len/4))
+    dataset.construct_tf_dataset('validation', p.encoder_seq_len, int(p.encoder_seq_len/4))
+
     '''stats test, using code from training loop'''
-    # p = Params(midi_test_params_v1)
-    # p.record_data_stats = True
-    # p.encoder_seq_len = p.decoder_seq_len = 50
-    # dataset = CustomDataset(p)
-
-    
-
     # for step in range(len(dataset.fileDict) // p.batch_size):
     #     train_batchX,train_batchY = dataset.slide_seq2seq_batch(p.batch_size, p.encoder_seq_len, 1, 'train')
 
@@ -258,12 +299,14 @@ if __name__ == "__main__":
     #                 found_dict[value] = 1
     # print(sorted(list(found_dict.keys())))
 
+    '''Record total/avg num events per file, min and max length files as well as memory taken up by all data in memory'''
     # numfiles = len(dataset.fileDict)
     # print(f"Number of files: {numfiles}")
     # total_events = 0
     # maxlen = 0
     # minlen = float('inf')
     # lengths = []
+    # accumulated_events = []
     # for file in dataset.fileDict.values():
     #     with open(file, 'rb') as f:
     #         encoded_midi_data = pickle.load(f)
@@ -276,13 +319,16 @@ if __name__ == "__main__":
     #             maxlen = length
 
     #         total_events += length
+    #         accumulated_events += encoded_midi_data
 
     # avg_event = total_events / numfiles
+    # acc1 = accumulated_events[0:int(len(accumulated_events)/2)]
+    # acc2 = accumulated_events[int(len(accumulated_events)/2):]
     # print(f"Total number of events: {total_events}")
     # print(f"Average number of events per file: {avg_event}")
     # print(f"Max length: {maxlen}")
     # print(f"Min length: {minlen}")
-    #print(f"lengtht_lis: {sorted(lengths)}")
-
+    # print(f"all_data_in_memory size: {sys.getsizeof(accumulated_events)}")
+    # print(f"all_data_in_memory size (split in 2): {sys.getsizeof(acc1) + sys.getsizeof(acc2)}")
     #Grab a simple file and sample it accordingly to grab more from each file 
     

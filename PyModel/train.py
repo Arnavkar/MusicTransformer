@@ -4,13 +4,10 @@ from Transformer.model import TransformerModel
 from time import time
 import tensorflow as tf
 from Transformer.params import midi_test_params_v1, Params
-from pickle import dump
 from datetime import datetime
 import argparse
 import json
 import os
-from tqdm.notebook import tqdm, trange
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -82,7 +79,6 @@ if __name__ == "__main__":
 
     train_loss_dict = {}
     val_loss_dict = {}
- 
     start_time = time()
     callbacks.on_train_begin(logs=logs)
     for epoch in range(p.epochs):

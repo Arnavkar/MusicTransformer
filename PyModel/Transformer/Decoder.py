@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Layer, Dropout
-from .MultiHeadAttentionLayer import MultiHeadAttention
+from .MultiHeadAttentionLayer import MultiHeadAttentionLayer
 from .FeedForwardLayer import FeedForward
 from .AddNormalizationLayer import AddNormalization
 from .PositionalEncodingLayer import PositionEmbeddingFixedWeights
@@ -15,11 +15,11 @@ class DecoderLayer(Layer):
         self.seq_len = p.decoder_seq_len
         self.model_dim = p.model_dim
 
-        self.masked_mha_layer = MultiHeadAttention(p,isRelative=False)
+        self.masked_mha_layer = MultiHeadAttentionLayer(p,isRelative=False)
         self.dropout1 = Dropout(p.dropout_rate)
         self.add_norm1 = AddNormalization()
 
-        self.mha_layer = MultiHeadAttention(p,isRelative=False)
+        self.mha_layer = MultiHeadAttentionLayer(p,isRelative=False)
         self.dropout2 = Dropout(p.dropout_rate)
         self.add_norm2 = AddNormalization()
         

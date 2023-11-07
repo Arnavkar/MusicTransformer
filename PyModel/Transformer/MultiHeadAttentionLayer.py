@@ -5,9 +5,9 @@ from .params import baseline_test_params, Params
 
 p = Params(baseline_test_params)
 
-class MultiHeadAttention(Layer):
+class MultiHeadAttentionLayer(Layer):
     def __init__(self, p:Params, isRelative=False, **kwargs):
-        super(MultiHeadAttention,self).__init__(**kwargs)
+        super(MultiHeadAttentionLayer,self).__init__(**kwargs)
 
         if isRelative: 
             raise NotImplementedError("Relative attention not yet implemented")

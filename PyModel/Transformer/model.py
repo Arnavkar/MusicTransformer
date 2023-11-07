@@ -18,12 +18,10 @@ class TransformerModel(Model):
         self.dense = Dense(p.decoder_vocab_size)
         self.train_loss = tf.keras.metrics.Mean(name="train_loss")
         self.train_accuracy = tf.keras.metrics.Mean(name="train_accuracy")
-        self.optimizer = tf.keras.optimizers.Adam(p.l_r, p.beta_1, p.beta_2, p.epsilon)
         self.val_loss = tf.keras.metrics.Mean(name='val_loss')
-        self.test_loss = tf.keras.metrics.Mean(name='test_loss')
-
     
-    def call(self, encoder_input, decoder_input, training):
+    def call(self, input_data, training):
+        encoder_input, decoder_input = input_data
         padding = padding_mask(encoder_input)
         #tf.maximum returns maximum element wise - lookahead mask is a upper triangular matrix of ones
         lookahead = tf.maximum(padding_mask(decoder_input),lookahead_mask(decoder_input.shape[1]))
@@ -34,7 +32,7 @@ class TransformerModel(Model):
     
     # Defining the loss function
     @tf.function
-    def compute_loss(self,target, prediction):
+    def compute_loss(self,target,prediction):
         # Create mask so that the zero padding values are not included in the computation of loss
         padding_mask = math.logical_not(equal(target, 0))
         padding_mask = cast(padding_mask, float32)
@@ -47,7 +45,7 @@ class TransformerModel(Model):
     
     # Defining the accuracy function
     @tf.function
-    def compute_accuracy(self,target, prediction):
+    def compute_accuracy(self,target,prediction):
         # Create mask so that the zero padding values are not included in the computation of accuracy
         padding_mask = math.logical_not(equal(target, 0))
     
@@ -63,47 +61,46 @@ class TransformerModel(Model):
         return reduce_sum(accuracy) / reduce_sum(padding_mask)
     
     @tf.function
-    def train_step(self, data, val_data):
-        encoder_input, decoder_input, decoder_output = data
-        encoder_input_val, decoder_input_val, decoder_output_val = val_data
+    def train_step(self, data):
+        train_batchX, train_batchY = data
+        encoder_input = train_batchX
+        decoder_input = train_batchY[:, :-1]
+        decoder_output = train_batchY[:, 1:]
         with tf.GradientTape() as tape:
             #generate prediction
-            prediction = self(encoder_input, decoder_input, training = True)
+            prediction = self((encoder_input, decoder_input), training = True)
 
             #compute loss
             loss = self.compute_loss(decoder_output, prediction)
 
              # Compute the training accuracy
-            accuracy = self.compute(decoder_output, prediction)
+            accuracy = self.compute_accuracy(decoder_output, prediction)
 
         gradients = tape.gradient(loss, self.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
         self.train_loss.update_state(loss)
         self.train_accuracy.update_state(accuracy)
-        
-        #Prediction on Validation set
-        prediction = self(encoder_input_val, decoder_input_val, training = False)
-        val_loss = self.compute_loss(decoder_output_val, prediction)
 
-        self.val_loss.update_state(val_loss)
-
-        return {m.name: m.result() for m in self.metrics}
+        return {"train_loss": self.train_loss.result(), "train_accuracy": self.train_accuracy.result()}
     
     @tf.function
-    def test_step(self,data):
-        encoder_input, decoder_input, decoder_output = data
-        prediction = self(encoder_input, decoder_input, training = False)
+    def test_step(self,val_data):
+        val_batchX, val_batchY = val_data
+        encoder_input = val_batchX
+        decoder_input = val_batchY[:, :-1]
+        decoder_output = val_batchY[:, 1:]
+        prediction = self((encoder_input, decoder_input), training = False)
 
         loss = self.compute_loss(decoder_output, prediction)
-        self.test_loss.update_state(loss)
+        self.val_loss.update_state(loss)
 
-        return {m.name: m.result() for m in self.metrics}
+        return {"val_loss": self.val_loss.result()}
 
-    @tf.function
-    def predict(self,input_data):
-        encoder_input, decoder_input = input_data
-        prediction = self(encoder_input, decoder_input, training = False)
-        return prediction
+    # @tf.function
+    # def predict(self,input_data):
+    #     encoder_input, decoder_input = input_data
+    #     prediction = self(encoder_input, decoder_input, training = False)
+    #     return prediction
 
     @property
     def metrics(self):

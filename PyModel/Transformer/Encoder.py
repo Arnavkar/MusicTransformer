@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Layer, Dropout, Input
 from tensorflow.keras.models import Model
-from .MultiHeadAttentionLayer import MultiHeadAttention
+from .MultiHeadAttentionLayer import MultiHeadAttentionLayer
 from .FeedForwardLayer import FeedForward
 from .PositionalEncodingLayer import PositionEmbeddingFixedWeights
 from .AddNormalizationLayer import AddNormalization
@@ -16,7 +16,7 @@ class EncoderLayer(Layer):
         self.seq_len = p.encoder_seq_len
 
         self.model_dim = p.model_dim
-        self.mha_layer = MultiHeadAttention(p, isRelative=False)
+        self.mha_layer = MultiHeadAttentionLayer(p, isRelative=False)
 
         self.dropout1 = Dropout(p.dropout_rate)
         #Not sure about this class yet

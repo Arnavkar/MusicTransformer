@@ -59,6 +59,33 @@ midi_test_params_v1 = {
     "record_data_stats":False,
 }
 
+#test params for model that uses model.fit
+midi_test_params_v2 = {
+    "num_heads": 8,  # Number of self-attention heads
+    "key_dim": 64,  # Dimensionality of linearly projected queries and keys
+    "value_dim": 64,  # Dimensionality of linearly projected values
+    "model_dim":512,  # Dimensionality of the model final output
+    "batch_size" :32,  # Batch size from the training process
+    "l_r":0.001,
+    "feed_forward_dim" : 2048,
+    "dropout_rate" : 0.1,
+    "encoder_vocab_size" : event_dim,
+    "num_encoder_layers" : 4,
+    "decoder_vocab_size" : event_dim,
+    "num_decoder_layers" : 4,
+    "epochs":100,
+    "beta_1":0.9,
+    "beta_2":0.98,
+    "epsilon":1e-9,
+    "encoder_seq_len": 1024,
+    "decoder_seq_len": 1024,
+    "pad_token" : 0,
+    "token_sos" : 1,
+    "token_eos" : 2,
+    "debug":True,
+    "record_data_stats":False,
+}
+
 
 class Params:
     def __init__(self, param_dict):
