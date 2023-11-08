@@ -17,7 +17,6 @@ __
 
 class CustomDataset():
     def __init__(self,p:Params, path="./data/processed") -> None:
-        random.seed(237)
         self.maestroJSON = self.get_maestroJSON()
         self.fileDict = self.get_encoded_files(path)
         self.model_data = {

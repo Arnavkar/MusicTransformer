@@ -80,22 +80,30 @@ if __name__ == '__main__':
     test_batchX,test_batchY = dataset.slide_seq2seq_batch(1, p.encoder_seq_len, 1, 'test')
     #extract a test sequence of the first 20 elements
     test_sequence = list(test_batchX[0][0:300])
-    samples_path = './samples/'
-    if not os.path.exists(samples_path):
-        os.mkdir(samples_path)
+
+    if not os.path.exists('./samples'):
+        os.mkdir('./samples')
+   
+    try:
+        time_recorded = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
+        sample_path = './samples' + f'/{args.model_name}_{time_recorded}/'
+        
+        os.mkdir(sample_path)
+        decode_midi(test_sequence,file_path=sample_path + 'input.mid')
+        print('input.mid written')
+
+        output_sequence = list(improvisor([test_sequence]))
+        decode_midi(output_sequence,file_path=sample_path + 'output.mid')
+        print('output.mid written')
+
+        decode_midi(test_batchX[0],file_path=sample_path + 'actual.mid')
+        print('actual.mid written')
+        
+    except Exception as e:
+        print(e)
+    print("Inference complete")
+
     
-    time_recorded = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
-    os.mkdir(samples_path + f'/{time_recorded}/')
-
-    print(f'test_sequence: {test_sequence}')
-    decode_midi(test_sequence,file_path=samples_path + f'/{args.model_name}_{time_recorded}/input.mid')
-
-    output_sequence = list(improvisor([test_sequence]))
-    print(f'output_sequence: {output_sequence}')
-    decode_midi(output_sequence,file_path=samples_path + f'/{args.model_name}_{time_recorded}/output.mid')
-
-    print(f'actual_sequence: {test_batchX[0]}')
-    decode_midi(test_batchX[0],file_path=samples_path + f'/{args.model_name}_{time_recorded}/actual.mid')
 
 
 
