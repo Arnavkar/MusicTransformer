@@ -4,7 +4,7 @@ from Transformer.model import TransformerModel
 from time import time
 import tensorflow as tf
 from Transformer.params import midi_test_params_v2, Params
-from Transformer.utils import custom_loss
+from Transformer.utils import custom_loss, custom_accuracy
 from pickle import dump
 from datetime import datetime
 import argparse
@@ -16,7 +16,7 @@ from Transformer.LRSchedule import LRScheduler
 
 
 if __name__ == "__main__":
-    os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
+    os.environ["CUDA_VISIBLE_DEVICES"]="1"
     #handle all command line arguments and parsing
     parser = argparse.ArgumentParser()
     parser.add_argument('-n','--name', type=str,required= True)
@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
     #file logger
     fh = logging.FileHandler(base_path + 'output.log', mode='w', encoding='utf-8')
-    fh.setLevel(logging.INFO)
+    fh.setLevel(logging.DEBUG)
 
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     fh.setFormatter(formatter)
@@ -101,11 +101,20 @@ if __name__ == "__main__":
 
     with strategy.scope():
         model.compile(optimizer = optimizer,
-                      loss_fn = custom_loss)
+                      loss_fn = custom_loss,
+                      accuracy_fn = custom_accuracy,
+                      logger = logger)
 
     start_time = time()
-    model_checkpoint = tf.keras.callbacks.ModelCheckpoint(base_path + "checkpoints", save_freq='epoch', verbose = 1)
+    model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
+        base_path + "checkpoints",
+        save_freq='epoch',
+        verbose = 1,
+        save_weights_only = True,
+    )
+    
     early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_val_loss', patience=3, restore_best_weights=True)
+
     tensorboard = tf.keras.callbacks.TensorBoard(
         log_dir=base_path+'logs',
         write_graph=True,

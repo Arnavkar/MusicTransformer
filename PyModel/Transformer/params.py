@@ -73,7 +73,7 @@ midi_test_params_v2 = {
     "num_encoder_layers" : 4,
     "decoder_vocab_size" : event_dim,
     "num_decoder_layers" : 4,
-    "epochs":300,
+    "epochs":50,
     "beta_1":0.9,
     "beta_2":0.98,
     "epsilon":1e-8,
@@ -84,6 +84,8 @@ midi_test_params_v2 = {
     "token_eos" : 2,
     "debug":True,
     "record_data_stats":False,
+    "steps_per_epoch": 500,
+    "save_freq": 10
 }
 
 class Params:

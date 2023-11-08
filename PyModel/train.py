@@ -10,7 +10,7 @@ import argparse
 import json
 import os
 import logging
-from Transformer.utils import custom_loss
+from Transformer.utils import custom_loss, custom_accuracy
 
 
 if __name__ == "__main__":
@@ -18,14 +18,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-n','--name', type=str,required= True)
-    parser.add_argument('-o','--overwrite', type=bool, required=False)
     parser.add_argument('-e','--epochs', type=int, required=False)
     parser.add_argument('-b','--batch_size', type=int, required=False)
     parser.add_argument('-s','--max_seq_len',type=int, required=False)
     parser.add_argument('-l','--num_layers', type=int, required=False)
+    parser.add_argument('-S','--steps_per_epoch', type=int, required=False)
+    parser.add_argument('-f','--save_freq',type=int ,required=False)
     args = parser.parse_args()
 
-    if not args.overwrite and os.path.exists('./models/' + args.name + '/'):
+    #Check if model arleady exists - ask about override
+    if os.path.exists('./models/' + args.name + '/'):
         print('Model already exists - do you want to continue? Y/N')
         char = input().lower()
         while char not in ['y','n']:
@@ -34,10 +36,12 @@ if __name__ == "__main__":
         if char == 'n':
             exit()
     
+    #Set up base path for model under models directory
     base_path = './models/' + args.name +  '/'
     if not os.path.exists(base_path):
         os.mkdir(base_path)
 
+    #Initilaize and adjust params based on cmd line arguments
     p = Params(midi_test_params_v2)
   
     if args.epochs:
@@ -54,6 +58,12 @@ if __name__ == "__main__":
     if args.batch_size:
         p.batch_size = args.batch_size
 
+    if args.steps_per_epoch:
+        p.steps_per_epoch = args.steps_per_epoch
+
+    if args.save_freq:
+        p.save_freq = args.save_freq
+
     #set up logger
     logger = logging.getLogger('tensorflow')
     logger.setLevel(logging.DEBUG)
@@ -67,24 +77,38 @@ if __name__ == "__main__":
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 
-   #Instantiate and Adam optimizer
-    #optimizer = tf.keras.optimizers.Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
-    optimizer = tf.keras.optimizers.Adam(p.l_r*10, p.beta_1, p.beta_2, p.epsilon)
-    
-    model = TransformerModel(p)
-     # Create a MirroredStrategy to run training across 2 GPUs
+    # Create a MirroredStrategy to run training across multiple GPUs with single machine
     strategy = tf.distribute.MirroredStrategy()
     logger.info("Number of devices: {}".format(strategy.num_replicas_in_sync))
 
+    #Instantiate Adam optimizer (Either with LRScheduler or without)
+    #optimizer = tf.keras.optimizers.Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
+    optimizer = tf.keras.optimizers.Adam(p.l_r*10, p.beta_1, p.beta_2, p.epsilon)
+    
+    #Create model
+    model = TransformerModel(p)
+
+    #Compile step - pass optimizer, loss func and accuracy func to model
     with strategy.scope():
         model.compile(
             optimizer = optimizer,
-            loss_fn = custom_loss)
+            loss_fn = custom_loss,
+            accuracy_fn = custom_accuracy
+        )
 
-    #set up relevant callbacks to use in the custom training loop
-    #Early-Stopping
+    #when using slide_seq2seq_batch - meant for decoder only architecture!
     dataset = CustomDataset(p)
-    logs = {}
+
+    #When Using tf data set
+    data = tf.data.Dataset.load("./data/tf_midi_data_train")
+    val_data = tf.data.Dataset.load("./data/tf_midi_data_validation")
+
+    data = data.shuffle(len(data)+1).repeat()
+    val_data = val_data.shuffle(len(val_data)+1)
+
+    data = data.batch(p.batch_size, drop_remainder=True)
+    val_data = val_data.batch(p.batch_size, drop_remainder=True)
+
     # Create a checkpoint object and manager to manage multiple checkpoints
     ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer)
     ckpt_manager = tf.train.CheckpointManager(
@@ -94,7 +118,7 @@ if __name__ == "__main__":
     )
 
     try:
-        logger.info("Saving Params...")
+        logger.info(f"Saving Params...{json.dumps(p.get_params(),indent=4)}")
         with open(base_path+'params.json', 'w') as file:
             param_dict = p.get_params()
             param_dict['name'] = args.name
@@ -103,7 +127,7 @@ if __name__ == "__main__":
         logger.info("Params Saved!")
     except Exception as e:
         logger.error(e)
-
+    
     train_loss_dict = {}
     val_loss_dict = {}
 
@@ -114,18 +138,29 @@ if __name__ == "__main__":
 
     start_time = time()
     for epoch in range(p.epochs):    
-        for step in range(len(dataset.fileDict) // p.batch_size):
-            _,train_batchX,train_batchY = dataset.slide_seq2seq_batch(p.batch_size, p.encoder_seq_len, 'train')
-            _,val_batchX,val_batchY = dataset.slide_seq2seq_batch(p.batch_size, p.encoder_seq_len, 'validation')
+        #=======TRAIN WITH SLIDE_SEQ2SEQ_BATCH=======
+        # for step in range(len(dataset.fileDict) // p.batch_size):
+        #     _,train_batchX,train_batchY = dataset.slide_seq2seq_batch(p.batch_size, p.encoder_seq_len, 'train')
+        #     _,val_batchX,val_batchY = dataset.slide_seq2seq_batch(p.batch_size, p.encoder_seq_len, 'validation')
 
+        #     model.train_step((train_batchX,train_batchY))
+        #     model.test_step((val_batchX,val_batchY))
+
+        #=======TRAIN WITH TF.DATA=======
+        for step,(train_batchX,train_batchY) in enumerate(data):
             model.train_step((train_batchX,train_batchY))
-            model.test_step((val_batchX,val_batchY))
+            if step % 50 == 0:
+                logger.info(f"Step {step} - Training Loss: {model.train_loss.result()}, Training Accuracy: {model.train_accuracy.result()}")
+            if step == p.steps_per_epoch:
+                break
 
+        for _,(val_batchX,val_batchY) in enumerate(val_data):
+            model.test_step((val_batchX,val_batchY))
         # Print epoch number and loss value at the end of every epoch
         logger.info("Epoch %d: Training Loss %.4f, Training Accuracy %.4f, Validation Loss %.4f" % (epoch + 1, model.train_loss.result(), model.train_accuracy.result(), model.val_loss.result()))
     
         # Save a checkpoint after every five epochs
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % p.save_freq == 0:
             save_path = ckpt_manager.save()
             logger.info("Saved checkpoint at epoch %d" % (epoch + 1))
             

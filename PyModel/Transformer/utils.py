@@ -18,7 +18,8 @@ def lookahead_mask(shape):
         # Mask out future entries by marking them with a 1.0
         return 1 - tf.linalg.band_part(tf.ones((shape,shape)), -1, 0)
 
-#define custom loss
+#define the custom loss function
+@tf.function
 def custom_loss(y_true,y_pred):
         # Create mask so that the zero padding values are not included in the computation of loss
         padding_mask = tf.math.logical_not(tf.equal(y_true, 0))
@@ -29,6 +30,24 @@ def custom_loss(y_true,y_pred):
 
         # Compute the mean loss over the unmasked values
         return tf.reduce_sum(loss) / tf.reduce_sum(padding_mask)
+
+
+#Defining the accuracy function
+@tf.function
+def custom_accuracy(y_true,y_pred):
+        # Create mask so that the zero padding values are not included in the computation of accuracy
+        padding_mask = tf.math.logical_not(tf.equal(y_true, 0))
+
+        # Find equal prediction and target values, and apply the padding mask
+        accuracy = tf.equal(y_true, tf.argmax(y_pred, axis=2))
+        accuracy = tf.math.logical_and(padding_mask, accuracy)
+
+        # Cast the True/False values to 32-bit-precision floating-point numbers
+        padding_mask = tf.cast(padding_mask, tf.float32)
+        accuracy = tf.cast(accuracy, tf.float32)
+
+        # Compute the mean accuracy over the unmasked values
+        return tf.reduce_sum(accuracy) / tf.reduce_sum(padding_mask)
 
 if __name__ == "__main__":
         padding_test = tf.constant([1,2,3,4,0,0,0])

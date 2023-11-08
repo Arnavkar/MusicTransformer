@@ -19,11 +19,15 @@ class TransformerModel(Model):
         self.train_loss = tf.keras.metrics.Mean(name="train_loss")
         self.train_accuracy = tf.keras.metrics.Mean(name="train_accuracy")
         self.val_loss = tf.keras.metrics.Mean(name='val_loss')
+        self.logger = None
 
-    def compile(self, optimizer,loss_fn):
+    def compile(self, optimizer,loss_fn,accuracy_fn,logger=None):
         super().compile()
         self.optimizer = optimizer
         self.compute_loss = loss_fn
+        self.compute_accuracy = accuracy_fn
+        if logger:
+            self.logger = logger
 
     
     def call(self, input_data, training):
@@ -35,23 +39,6 @@ class TransformerModel(Model):
         encoder_output = self.encoder(encoder_input, padding, training)
         decoder_output = self.decoder(decoder_input, encoder_output, lookahead, padding, training)
         return self.dense(decoder_output)
-    
-    # Defining the accuracy function
-    @tf.function
-    def compute_accuracy(self,target,prediction):
-        # Create mask so that the zero padding values are not included in the computation of accuracy
-        padding_mask = math.logical_not(equal(target, 0))
-    
-        # Find equal prediction and target values, and apply the padding mask
-        accuracy = equal(target, argmax(prediction, axis=2))
-        accuracy = math.logical_and(padding_mask, accuracy)
-    
-        # Cast the True/False values to 32-bit-precision floating-point numbers
-        padding_mask = cast(padding_mask, float32)
-        accuracy = cast(accuracy, float32)
-    
-        # Compute the mean accuracy over the unmasked values
-        return reduce_sum(accuracy) / reduce_sum(padding_mask)
     
     @tf.function
     def train_step(self, data):
@@ -73,7 +60,8 @@ class TransformerModel(Model):
         self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
         self.train_loss.update_state(loss)
         self.train_accuracy.update_state(accuracy)
-
+        if self.logger:
+            self.logger.info(f"Training loss: {float(self.train_loss.result())}, Training accuracy: {float(self.train_accuracy.result())}")
         return {"train_loss": self.train_loss.result(), "train_accuracy": self.train_accuracy.result()}
     
     @tf.function
@@ -86,14 +74,9 @@ class TransformerModel(Model):
 
         loss = self.compute_loss(decoder_output, prediction)
         self.val_loss.update_state(loss)
-
+        if self.logger:
+            self.logger.info(f"Validation loss: {float(self.val_loss.result())}")
         return {"val_loss": self.val_loss.result()}
-
-    # @tf.function
-    # def predict(self,input_data):
-    #     encoder_input, decoder_input = input_data
-    #     prediction = self(encoder_input, decoder_input, training = False)
-    #     return prediction
 
     @property
     def metrics(self):
@@ -106,4 +89,6 @@ if __name__ == "__main__":
     output = model(test_tensor, test_tensor, True)
     print(f'Transformer Model output: {output}')
     model.summary()
+
+
 
