@@ -5,8 +5,8 @@ from .utils import check_shape
 class FeedForward(Layer):
     def __init__(self, d_in, d_out, **kwargs):
         super(FeedForward,self).__init__(**kwargs)
-        self.fully_connected1 = Dense(d_in)  # First fully connected layer takes in input dimensions
-        self.fully_connected2 = Dense(d_out)  # Second fully connected layer, based on model output dimensions
+        self.fully_connected1 = Dense(d_in, kernel_initializer="glorot_uniform", bias_initializer=tf.keras.initializers.Zeros())  # First fully connected layer takes in input dimensions
+        self.fully_connected2 = Dense(d_out, kernel_initializer="glorot_uniform", bias_initializer=tf.keras.initializers.Zeros())  # Second fully connected layer, based on model output dimensions
         self.activation = ReLU()
 
     def call(self, x):

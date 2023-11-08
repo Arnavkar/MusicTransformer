@@ -9,6 +9,8 @@ import json
 from Transformer.params import Params
 from midi_neural_preprocessor.processor import decode_midi
 import os
+from Transformer.utils import custom_loss
+from datetime import datetime
 
 class Improvisor(tf.Module):
     def __init__(self,transformer_model,p:Params, **kwargs):
@@ -25,11 +27,9 @@ class Improvisor(tf.Module):
         start_token = tf.convert_to_tensor([self.params.token_sos],dtype=tf.int64)
         decoder_output = tf.TensorArray(dtype=tf.int64, size=0, dynamic_size=True)
         decoder_output = decoder_output.write(0,start_token)
-        
-        
         i = 0
         while True:
-            prediction = self.model(encoder_input, tf.transpose(decoder_output.stack()), False)
+            prediction = self.model((encoder_input, tf.transpose(decoder_output.stack())), training=False)
             prediction = prediction[:, -1, :]
 
             # Select the prediction with the highest score
@@ -54,36 +54,48 @@ class Improvisor(tf.Module):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-n',"--model_name", type=str,required= True)
+    parser.add_argument('-c','--checkpoint_type', type=str, required=True)
     args = parser.parse_args()
 
     model_params = json.load(open('./models/' + args.model_name + '/params.json', 'rb'))
     p = Params(model_params)
     dataset = CustomDataset(p)
-    #instantiate model
     model = TransformerModel(p)
-    checkpoint = tf.train.Checkpoint(model=model, optimizer=model.optimizer)
-    latest_checkpoint = tf.train.latest_checkpoint('./models/' + args.model_name + "/checkpoints")    
-    print(f"Latest Checkpoint path: {latest_checkpoint}")
-    #Add expect_partial for lazy creation of weights
-    checkpoint.restore(latest_checkpoint).expect_partial()
+    optimizer = tf.keras.optimizers.Adam(p.l_r, p.beta_1, p.beta_2, p.epsilon)
+
+    if args.checkpoint_type == 'pb':
+        model = tf.keras.models.load_model('./models/' + args.model_name + '/checkpoints')
+
+    elif args.checkpoint_type == 'ckpt':
+    #instantiate model
+        checkpoint_path = './models/' + args.model_name + "/checkpoints/"
+        checkpoint = tf.train.Checkpoint(model=model, optimizer=optimizer)
+        latest_checkpoint = tf.train.latest_checkpoint(checkpoint_path)    
+        print(f"Latest Checkpoint path: {latest_checkpoint}")
+        #Add expect_partial for lazy creation of weights
+        checkpoint.restore(latest_checkpoint).expect_partial()
 
     improvisor = Improvisor(model,p)
 
     test_batchX,test_batchY = dataset.slide_seq2seq_batch(1, p.encoder_seq_len, 1, 'test')
     #extract a test sequence of the first 20 elements
     test_sequence = list(test_batchX[0][0:300])
-    if not os.path.exists('./samples/'):
-        os.mkdir('samples')
-        
+    samples_path = './samples/'
+    if not os.path.exists(samples_path):
+        os.mkdir(samples_path)
+    
+    time_recorded = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
+    os.mkdir(samples_path + f'/{time_recorded}/')
+
     print(f'test_sequence: {test_sequence}')
-    decode_midi(test_sequence,file_path='samples/input_test.mid')
+    decode_midi(test_sequence,file_path=samples_path + f'/{args.model_name}_{time_recorded}/input.mid')
 
     output_sequence = list(improvisor([test_sequence]))
     print(f'output_sequence: {output_sequence}')
-    decode_midi(output_sequence,file_path='samples/output_test.mid')
+    decode_midi(output_sequence,file_path=samples_path + f'/{args.model_name}_{time_recorded}/output.mid')
 
     print(f'actual_sequence: {test_batchX[0]}')
-    decode_midi(test_batchX[0],file_path='samples/actual_test.mid')
+    decode_midi(test_batchX[0],file_path=samples_path + f'/{args.model_name}_{time_recorded}/actual.mid')
 
 
 

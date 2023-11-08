@@ -4,6 +4,7 @@ from Transformer.model import TransformerModel
 from time import time
 import tensorflow as tf
 from Transformer.params import midi_test_params_v2, Params
+from Transformer.utils import custom_loss
 from pickle import dump
 from datetime import datetime
 import argparse
@@ -56,9 +57,11 @@ if __name__ == "__main__":
     #set up logger
     logger = logging.getLogger('tensorflow')
     logger.setLevel(logging.DEBUG)
+
     #file logger
     fh = logging.FileHandler(base_path + 'output.log', mode='w', encoding='utf-8')
     fh.setLevel(logging.DEBUG)
+
     #console logger
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
@@ -67,6 +70,7 @@ if __name__ == "__main__":
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     ch.setFormatter(formatter)
     fh.setFormatter(formatter)
+
     # add the handlers to logger
     logger.addHandler(ch)
     logger.addHandler(fh)
@@ -91,7 +95,8 @@ if __name__ == "__main__":
     model = TransformerModel(p)
 
     with strategy.scope():
-        model.compile(optimizer = optimizer)
+        model.compile(optimizer = optimizer,
+                      loss_fn = custom_loss)
 
     start_time = time()
     model_checkpoint = tf.keras.callbacks.ModelCheckpoint(base_path + "checkpoints", save_freq='epoch', verbose = 1)
@@ -108,7 +113,7 @@ if __name__ == "__main__":
         logger.info("Training model...")
         history = model.fit(
             data, 
-            epochs = 2,
+            epochs = p.epochs,
             validation_data = val_data,
             callbacks = [model_checkpoint, early_stopping, tensorboard],
             steps_per_epoch = 500,

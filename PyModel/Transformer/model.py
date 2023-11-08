@@ -19,6 +19,12 @@ class TransformerModel(Model):
         self.train_loss = tf.keras.metrics.Mean(name="train_loss")
         self.train_accuracy = tf.keras.metrics.Mean(name="train_accuracy")
         self.val_loss = tf.keras.metrics.Mean(name='val_loss')
+
+    def compile(self, optimizer,loss_fn):
+        super().compile()
+        self.optimizer = optimizer
+        self.compute_loss = loss_fn
+
     
     def call(self, input_data, training):
         encoder_input, decoder_input = input_data
@@ -29,19 +35,6 @@ class TransformerModel(Model):
         encoder_output = self.encoder(encoder_input, padding, training)
         decoder_output = self.decoder(decoder_input, encoder_output, lookahead, padding, training)
         return self.dense(decoder_output)
-    
-    # Defining the loss function
-    @tf.function
-    def compute_loss(self,target,prediction):
-        # Create mask so that the zero padding values are not included in the computation of loss
-        padding_mask = math.logical_not(equal(target, 0))
-        padding_mask = cast(padding_mask, float32)
-    
-        # Compute a sparse categorical cross-entropy loss on the unmasked values - logits = True because we do not have the softmax in our model
-        loss = sparse_categorical_crossentropy(target, prediction, from_logits=True) * padding_mask
-    
-        # Compute the mean loss over the unmasked values
-        return reduce_sum(loss) / reduce_sum(padding_mask)
     
     # Defining the accuracy function
     @tf.function
@@ -105,8 +98,6 @@ class TransformerModel(Model):
     @property
     def metrics(self):
         return [self.train_loss, self.train_accuracy, self.val_loss]
-
-    
 
 if __name__ == "__main__":
     p = Params(baseline_test_params)

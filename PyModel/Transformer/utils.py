@@ -1,6 +1,5 @@
 import tensorflow as tf
 from tensorflow.keras.losses import sparse_categorical_crossentropy
-from tensorflow import  math, reduce_sum, cast, equal, argmax, float32
 
 
 
@@ -18,6 +17,18 @@ def padding_mask(input):
 def lookahead_mask(shape):
         # Mask out future entries by marking them with a 1.0
         return 1 - tf.linalg.band_part(tf.ones((shape,shape)), -1, 0)
+
+#define custom loss
+def custom_loss(y_true,y_pred):
+        # Create mask so that the zero padding values are not included in the computation of loss
+        padding_mask = tf.math.logical_not(tf.equal(y_true, 0))
+        padding_mask = tf.cast(padding_mask, tf.float32)
+
+        # Compute a sparse categorical cross-entropy loss on the unmasked values - logits = True because we do not have the softmax in our model
+        loss = tf.keras.losses.sparse_categorical_crossentropy(y_true, y_pred, from_logits=True) * padding_mask
+
+        # Compute the mean loss over the unmasked values
+        return tf.reduce_sum(loss) / tf.reduce_sum(padding_mask)
 
 if __name__ == "__main__":
         padding_test = tf.constant([1,2,3,4,0,0,0])
