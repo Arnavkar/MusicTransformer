@@ -11,26 +11,29 @@ from .params import baseline_test_params, Params
 class EncoderLayer(Layer):
     def __init__(self, p:Params, **kwargs):
         super(EncoderLayer, self).__init__(**kwargs)
-        #for building graph
-        #self.build(input_shape=[None, p.seq_len, p.model_dim])
         self.seq_len = p.encoder_seq_len
-
         self.model_dim = p.model_dim
+        self.dropout_rate = p.dropout_rate
+        self.feed_forward_dim = p.feed_forward_dim
+
         self.mha_layer = MultiHeadAttentionLayer(p, isRelative=False)
-
-        self.dropout1 = Dropout(p.dropout_rate)
-        #Not sure about this class yet
         self.add_norm1 = AddNormalization()
-
-        #Not sure about these dimensions yet
+        self.dropout1 = Dropout(p.dropout_rate)
+        self.add_norm2 = AddNormalization()
+        self.dropout2 = Dropout(p.dropout_rate)
         self.feed_forward = FeedForward(p.feed_forward_dim, p.model_dim)
 
-        self.dropout2 = Dropout(p.dropout_rate)
-        self.add_norm2 = AddNormalization()
-
-    # def build_graph(self):
-    #     input_layer = Input(shape=(self.seq_len, self.model_dim))
-    #     return Model(inputs=[input_layer], outputs=self.call(input_layer, None, True))
+    def get_config(self):
+        config = super(EncoderLayer, self).get_config()
+        config.update({
+            'seq_len': self.seq_len,
+            'model_dim': self.model_dim,
+            'dropout_rate': self.dropout_rate,
+            'feed_forward_dim': self.feed_forward_dim,
+            'mha_layer': self.mha_layer.get_config(),
+            'feed_forward': self.feed_forward.get_config(),
+        })
+        return config
 
     def call(self, x, padding_mask, training):
         attention_output = self.mha_layer([x, x, x], padding_mask)
@@ -49,9 +52,28 @@ class EncoderLayer(Layer):
 class Encoder(Layer):
     def __init__(self, p:Params, **kwargs):
         super(Encoder,self).__init__(**kwargs)
-        self.positional_encoding = PositionEmbeddingFixedWeights(p.encoder_seq_len, p.encoder_vocab_size, p.model_dim)
-        self.dropout = Dropout(p.dropout_rate)
-        self.encoder_layers = [EncoderLayer(p) for _ in range(p.num_encoder_layers)]
+        self.encoder_seq_len = p.encoder_seq_len
+        self.model_dim = p.model_dim
+        self.dropout_rate = p.dropout_rate
+        self.encoder_vocab_size = p.encoder_vocab_size
+        self.num_encoder_layers = p.num_encoder_layers
+
+        self.positional_encoding = PositionEmbeddingFixedWeights(self.encoder_seq_len, self.encoder_vocab_size, self.model_dim)
+        self.dropout = Dropout(self.dropout_rate)
+        self.encoder_layers = [EncoderLayer(p) for _ in range(self.num_encoder_layers)]
+
+    def get_config(self):
+        config = super(Encoder, self).get_config()
+        config.update({
+            'encoder_seq_len': self.encoder_seq_len,
+            'encoder_vocab_size': self.encoder_vocab_size,
+            'model_dim': self.model_dim,
+            'dropout_rate': self.dropout_rate,
+            'num_encoder_layers': self.num_encoder_layers,
+            # 'positional_encoding' is also a layer and needs to handle its config
+            'positional_encoding': self.positional_encoding.get_config(),
+            'encoder_layers': [layer.get_config() for layer in self.encoder_layers.layers]
+        })
     
     def call(self, x, padding_mask, training):
         positional_encoding_output = self.positional_encoding(x)

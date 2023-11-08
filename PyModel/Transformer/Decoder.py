@@ -29,10 +29,6 @@ class DecoderLayer(Layer):
         self.dropout3 = Dropout(p.dropout_rate)
         self.add_norm3 = AddNormalization()
 
-    # def build_graph(self):
-    #     input_layer = Input(shape=(self.seq_len, self.model_dim))
-    #     return Model(inputs=[input_layer], outputs=self.call(input_layer, None, None, None, True))
-
     def call(self, x, encoder_output, lookahead_mask, padding_mask, training):
         attention_output1 = self.masked_mha_layer([x, x, x], lookahead_mask)
         attention_output1 = self.dropout1(attention_output1, training=training)

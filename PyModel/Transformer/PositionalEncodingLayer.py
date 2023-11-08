@@ -88,6 +88,17 @@ class PositionEmbeddingFixedWeights(Layer):
             weights=[self.position_embedding_matrix],
             trainable=False
         )
+    
+    def get_config(self):
+        config = super(PositionEmbeddingFixedWeights, self).get_config()
+        config.update({
+            'seq_len': self.seq_len,
+            'vocab_size': self.vocab_size,
+            'output_dim': self.output_dim,
+            'input_embedding_layer': tf.keras.saving.serialize_keras_object(self.input_embedding_layer),
+            'position_embedding_layer': tf.keras.saving.serialize_keras_object(self.position_embedding_layer),
+        })
+        return config
 
     #Based on "attention is all you need"
 #     #Given a input sequence of size L

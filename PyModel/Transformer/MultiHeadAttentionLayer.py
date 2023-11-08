@@ -2,9 +2,9 @@ import tensorflow as tf
 from tensorflow.keras.layers import Layer, Dense
 from .utils import check_shape
 from .params import baseline_test_params, Params
+import json
 
-p = Params(baseline_test_params)
-
+@tf.keras.saving.register_keras_serializable()
 class MultiHeadAttentionLayer(Layer):
     def __init__(self, p:Params, isRelative=False, **kwargs):
         super(MultiHeadAttentionLayer,self).__init__(**kwargs)
@@ -63,7 +63,21 @@ class MultiHeadAttentionLayer(Layer):
         tensor = tf.reshape(tensor, (tf.shape(tensor)[0], tf.shape(tensor)[1], self.key_dim))
         return tensor
     
-    def call(self, inputs, mask, **kwargs):
+    def get_config(self):
+        config = super(MultiHeadAttentionLayer, self).get_config()
+        config.update({
+            'num_heads': self.num_heads,
+            'key_dim': self.key_dim,
+            'value_dim': self.value_dim,
+            'model_dim': self.model_dim,
+            'W_query': tf.keras.saving.serialize_keras_object(self.W_query),
+            'W_key': tf.keras.saving.serialize_keras_object(self.W_key),
+            'W_value': tf.keras.saving.serialize_keras_object(self.W_value),
+            'W_out': tf.keras.saving.serialize_keras_object(self.W_out),
+        })
+        return config
+    
+    def call(self, inputs, mask=None, **kwargs):
         '''
         input: a list of tensors, representing [queries, keys, values]
         mask: for masked multi head attention in decoder
@@ -94,12 +108,16 @@ class MultiHeadAttentionLayer(Layer):
 
 if __name__ == "__main__":
     #test the layer
-    queries = tf.random.uniform((p.batch_size, p.seq_len, p.embedding_dim))
-    keys = tf.random.uniform((p.batch_size, p.seq_len, p.embedding_dim))
-    values = tf.random.uniform((p.batch_size, p.seq_len, p.embedding_dim))
+    p = Params(baseline_test_params)
+    queries = tf.random.uniform((p.batch_size, p.encoder_seq_len, p.model_dim))
+    keys = tf.random.uniform((p.batch_size, p.encoder_seq_len, p.model_dim))
+    values = tf.random.uniform((p.batch_size, p.encoder_seq_len, p.model_dim))
 
     attention_layer = MultiHeadAttentionLayer(p)
     #Expect shape to be 64, 5, 512
     output = attention_layer([queries,keys,values])
-    check_shape("test",output,(p.batch_size,p.seq_len,p.model_dim))
+    check_shape("test",output,(p.batch_size,p.encoder_seq_len,p.model_dim))
     print(f'Attention Layer output: {output}')
+
+    layer_config = attention_layer.get_config()
+    print(f"Layer config: {json.dumps(layer_config,indent=4)}")
