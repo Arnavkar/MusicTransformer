@@ -82,7 +82,7 @@ def train_step(encoder_input, decoder_input, decoder_output):
     with GradientTape() as tape:
  
         # Run the forward pass of the model to generate a prediction
-        prediction = transformer(encoder_input, decoder_input, training=False)
+        prediction = transformer((encoder_input, decoder_input), training=False)
  
         # Compute the training loss
         loss = loss_fcn(decoder_output, prediction)
@@ -110,6 +110,7 @@ for epoch in range(p.epochs):
  
     # Iterate over the dataset batches
     for step, (train_batchX, train_batchY) in enumerate(train_dataset):
+        print(train_batchX, train_batchY)
         # Define the encoder and decoder inputs, and the decoder output
         encoder_input = train_batchX[:, 1:]
         decoder_input = train_batchY[:, :-1]

@@ -12,9 +12,11 @@ import json
 import os
 from tqdm.notebook import tqdm, trange
 import logging
+from Transformer.LRSchedule import LRScheduler
 
 
 if __name__ == "__main__":
+    os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
     #handle all command line arguments and parsing
     parser = argparse.ArgumentParser()
     parser.add_argument('-n','--name', type=str,required= True)
@@ -60,19 +62,10 @@ if __name__ == "__main__":
 
     #file logger
     fh = logging.FileHandler(base_path + 'output.log', mode='w', encoding='utf-8')
-    fh.setLevel(logging.DEBUG)
+    fh.setLevel(logging.INFO)
 
-    #console logger
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
-
-    # create formatter and add it to the handlers
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    ch.setFormatter(formatter)
     fh.setFormatter(formatter)
-
-    # add the handlers to logger
-    logger.addHandler(ch)
     logger.addHandler(fh)
 
     # Create a MirroredStrategy to run training across 2 GPUs
@@ -90,37 +83,10 @@ if __name__ == "__main__":
     val_data = val_data.batch(p.batch_size, drop_remainder=True)
 
     #Instantiate and Adam optimizer
-    optimizer = tf.keras.optimizers.Adam(p.l_r, p.beta_1, p.beta_2, p.epsilon)
+    optimizer = tf.keras.optimizers.Adam(0.001, p.beta_1, p.beta_2, p.epsilon)
+
     
     model = TransformerModel(p)
-
-    with strategy.scope():
-        model.compile(optimizer = optimizer,
-                      loss_fn = custom_loss)
-
-    start_time = time()
-    model_checkpoint = tf.keras.callbacks.ModelCheckpoint(base_path + "checkpoints", save_freq='epoch', verbose = 1)
-    early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_val_loss', patience=3, restore_best_weights=True)
-    tensorboard = tf.keras.callbacks.TensorBoard(
-        log_dir='logs',
-        write_graph=True,
-        write_images=False,
-        write_steps_per_second=False,
-        update_freq='epoch',
-    )
-
-    try:
-        logger.info("Training model...")
-        history = model.fit(
-            data, 
-            epochs = p.epochs,
-            validation_data = val_data,
-            callbacks = [model_checkpoint, early_stopping, tensorboard],
-            steps_per_epoch = 500,
-        )
-        logger.info("Training Complete! Total time taken: %.2fs" % (time() - start_time))   
-    except Exception as e:
-        logger.error(e)
 
     try:
         logger.info("Saving Params...")
@@ -133,11 +99,34 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(e)
 
-    # Save the training loss values
+    with strategy.scope():
+        model.compile(optimizer = optimizer,
+                      loss_fn = custom_loss)
+
+    start_time = time()
+    model_checkpoint = tf.keras.callbacks.ModelCheckpoint(base_path + "checkpoints", save_freq='epoch', verbose = 1)
+    early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_val_loss', patience=3, restore_best_weights=True)
+    tensorboard = tf.keras.callbacks.TensorBoard(
+        log_dir=base_path+'logs',
+        write_graph=True,
+        write_images=False,
+        write_steps_per_second=False,
+        update_freq='epoch',
+    )
+    #Train model and save history
     try:
+        logger.info("Training model...")
+        history = model.fit(
+            data.repeat(), 
+            epochs = p.epochs,
+            validation_data = val_data,
+            callbacks = [model_checkpoint, early_stopping, tensorboard],
+            steps_per_epoch = 500,
+        )
+        logger.info("Training Complete! Total time taken: %.2fs" % (time() - start_time))  
         logger.info("Saving History...")
         with open(base_path+'history.json', 'w') as file:
             json.dump(history.history,file)
-        logger.info("History Saved!")
+        logger.info("History Saved!") 
     except Exception as e:
         logger.error(e)

@@ -98,7 +98,7 @@ if __name__ == "__main__":
     keys = tf.random.uniform((p.batch_size, p.seq_len, p.embedding_dim))
     values = tf.random.uniform((p.batch_size, p.seq_len, p.embedding_dim))
 
-    attention_layer = MultiHeadAttention(p)
+    attention_layer = MultiHeadAttentionLayer(p)
     #Expect shape to be 64, 5, 512
     output = attention_layer([queries,keys,values])
     check_shape("test",output,(p.batch_size,p.seq_len,p.model_dim))

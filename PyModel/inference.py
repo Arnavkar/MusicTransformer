@@ -77,7 +77,7 @@ if __name__ == '__main__':
 
     improvisor = Improvisor(model,p)
 
-    test_batchX,test_batchY = dataset.slide_seq2seq_batch(1, p.encoder_seq_len, 1, 'test')
+    _ , test_batchX,test_batchY = dataset.slide_seq2seq_batch(1, p.encoder_seq_len, 'test', 1)
     #extract a test sequence of the first 20 elements
     test_sequence = list(test_batchX[0][0:300])
 
@@ -89,16 +89,16 @@ if __name__ == '__main__':
         sample_path = './samples' + f'/{args.model_name}_{time_recorded}/'
         
         os.mkdir(sample_path)
-        decode_midi(test_sequence,file_path=sample_path + 'input.mid')
+        decode_midi(test_sequence,file_path=sample_path + 'input.midi')
         print('input.mid written')
 
         output_sequence = list(improvisor([test_sequence]))
-        decode_midi(output_sequence,file_path=sample_path + 'output.mid')
+        decode_midi(output_sequence,file_path=sample_path + 'output.midi')
         print('output.mid written')
 
-        decode_midi(test_batchX[0],file_path=sample_path + 'actual.mid')
+        decode_midi(test_batchX[0],file_path=sample_path + 'actual.midi')
         print('actual.mid written')
-        
+
     except Exception as e:
         print(e)
     print("Inference complete")
