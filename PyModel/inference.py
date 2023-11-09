@@ -39,9 +39,10 @@ class Improvisor(tf.Module):
             # Write the selected prediction to the output array at the next available index
             decoder_output = decoder_output.write(i + 1, predicted_id)
             # Break if an <EOS> token is predicted
-            if predicted_id == self.params.token_eos:
+            if predicted_id == self.params.token_eos or i > self.params.encoder_seq_len + 400:
                 break
             i+=1
+            print(i,predicted_id)
 
         output = tf.transpose(decoder_output.stack())[0]
         decoder_output = decoder_output.mark_used()
@@ -68,13 +69,13 @@ if __name__ == '__main__':
 
     elif args.checkpoint_type == 'ckpt':
     #instantiate model
-        checkpoint_path = './models/' + args.model_name + "/checkpoints/"
+        checkpoint_path = './models/' + args.model_name
         checkpoint = tf.train.Checkpoint(model=model, optimizer=optimizer)
         latest_checkpoint = tf.train.latest_checkpoint(checkpoint_path)    
         print(f"Latest Checkpoint path: {latest_checkpoint}")
         #Add expect_partial for lazy creation of weights
         checkpoint.restore(latest_checkpoint).expect_partial()
-
+    
     improvisor = Improvisor(model,p)
 
     _ , test_batchX,test_batchY = dataset.slide_seq2seq_batch(1, p.encoder_seq_len, 'test', 1)
@@ -89,6 +90,7 @@ if __name__ == '__main__':
         sample_path = './samples' + f'/{args.model_name}_{time_recorded}/'
         
         os.mkdir(sample_path)
+
         decode_midi(test_sequence,file_path=sample_path + 'input.midi')
         print('input.mid written')
 
@@ -100,6 +102,7 @@ if __name__ == '__main__':
         print('actual.mid written')
 
     except Exception as e:
+        os.rmdir(sample_path)
         print(e)
     print("Inference complete")
 

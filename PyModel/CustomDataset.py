@@ -8,12 +8,19 @@ import tensorflow as tf
 import json
 from numba import cuda, jit
 
-'''
-Subclasses Kera Sequence object, must implement __getitem__ and __len__ methods
+#==================================================================
+#Custom Dataset 
+# 
+# Subclasses Kera Sequence object, must implement __getitem__ and __len__ methods ?
+# __getitem__ returns a batch of data, where the batch size is the first dimension of the resturned array
+# __len__ returns the number of batches in the sequence
+#==================================================================
 
-__getitem__ returns a batch of data, where the batch size is the first dimension of the resturned array
-__
-'''
+
+class FileData():
+    def __init__(self,fp):
+        self.fp
+        self.current_note_index = 0
 
 class CustomDataset():
     def __init__(self,p:Params, path="./data/processed") -> None:
@@ -126,7 +133,7 @@ class CustomDataset():
             self.record_stats(fname, start, length, len(data),mode)
         return data
 
-    #NOTE: Taken from Github implementation of Transformer - currently using construct tf_dataset_method
+    #NOTE: Taken from Github implementation of Transformer - meant for DECODER ONLY MODELS!
     def slide_seq2seq_batch(self, batch_size, length, mode='train', num_tokens_to_predict = None):
         if num_tokens_to_predict is None:
             num_tokens_to_predict = length
@@ -158,37 +165,37 @@ class CustomDataset():
             #while looping through each file, grab a sequence of length seq_len 
             #stride sets the distance between each grabbed sequence
             #This while loop ensures we don't grab sequences that are too short, they are discarded
-            while current_note_index + seq_len + 1 < len(test_data):
-                #grab sequence of 2 less tokens and add sos/eos tokens
-                end_index = current_note_index + seq_len - 2
-                sequence_x = test_data[current_note_index:end_index]
-                sequence_x = np.insert(sequence_x,0,self.params.token_sos)
-                sequence_x = np.append(sequence_x,self.params.token_eos)
+            while current_note_index + seq_len*2 + 1 < len(test_data):
 
-                #same as sequence_x but shifted by 1
-                sequence_y = test_data[current_note_index+1:end_index+1]
+                x_start = current_note_index
+                x_end = current_note_index + seq_len
+                sequence_x = test_data[x_start:x_end]
+
+                y_start = x_end 
+                y_end = x_end + seq_len
+                sequence_y = test_data[y_start:y_end]
                 sequence_y = np.insert(sequence_y,0,self.params.token_sos)
                 sequence_y = np.append(sequence_y,self.params.token_eos)
                 x.append(sequence_x)
                 y.append(sequence_y)
                 current_note_index += stride
-
+            
             print(f'File {current_file_index} at path {fp} complete: {current_note_index} notes processed out of {len(test_data)}')
             #move to next file
             current_file_index += 1
             current_note_index = 0
         
-        assert len(x) == len(y), f"Length of x and y are not equal: {len(x)} != {len(y)}"
+        assert len(x) == len(y), f"num of x samples should equal to y samples, {len(x)} != {len(y)}"
         for i in range(len(x)):
-            assert len(x[i]) == len(y[i]), f"Length of x elem and y elem at {i} are not equal: {len(x[i])} != {len(y[i])}"
-            assert x[i][0] == self.params.token_sos, f"First token of x elem at {i} is not sos token: {x[i][0]} != {self.params.token_sos}"
+            assert len(x[i]) == len(y[i])-2, f"Length of x elem should be 2 less than y elem: {len(x[i])} != {len(y[i])}"
+            # assert x[i][0] == self.params.token_sos, f"First token of x elem at {i} is not sos token: {x[i][0]} != {self.params.token_sos}"
             assert y[i][0] == self.params.token_sos, f"First token of y elem at {i} is not sos token: {y[i][0]} != {self.params.token_sos}"
-            assert x[i][-1] == self.params.token_eos, f"Last token of x elem at {i} is not eos token: {x[i][-1]} != {self.params.token_eos}"
+            #assert x[i][-1] == self.params.token_eos, f"Last token of x elem at {i} is not eos token: {x[i][-1]} != {self.params.token_eos}"
             assert y[i][-1] == self.params.token_eos, f"Last token of y elem at {i} is not eos token: {y[i][-1]} != {self.params.token_eos}"
-            assert (x[i][2:-1] == y[i][1:-2]).all(), f"Sequence of x elem at {i} is not equal to sequence of y elem at {i}: {x[i][2:-1]} != {y[i][1:-2]}"
+        #     assert (x[i][2:-1] == y[i][1:-2]).all(), f"Sequence of x elem at {i} is not equal to sequence of y elem at {i}: {x[i][2:-1]} != {y[i][1:-2]}"
 
         dataset = tf.data.Dataset.from_tensor_slices((x,y))
-        path = os.path.join("./data/tf_midi_data_" + mode)
+        path = os.path.join("./data/tf_midi_data_" + mode + "_new")
         tf.data.Dataset.save(dataset, path)
         print(f"Dataset saved at {path}")
 
@@ -197,24 +204,24 @@ if __name__ == "__main__":
     '''Construct and load dataset witf tf.data.Dataset'''
     p = Params(midi_test_params_v2)
     dataset = CustomDataset(p)
-    # dataset.construct_tf_dataset('train', p.encoder_seq_len, int(p.encoder_seq_len/4))
-    # dataset.construct_tf_dataset('validation', p.encoder_seq_len, int(p.encoder_seq_len/4))
+    dataset.construct_tf_dataset('train', p.encoder_seq_len, p.encoder_seq_len)
+    dataset.construct_tf_dataset('validation', p.encoder_seq_len, p.encoder_seq_len)
 
     #============================================================================================
     # Testing out slide_seq2seq - checking average number of events per midi file
     #============================================================================================
-    for step in range(len(dataset.fileDict) // p.batch_size):
-        data, train_batchX,train_batchY = dataset.slide_seq2seq_batch(1, 10,'train',1)
-        for i in range(len(data)):
-            print(f'Data: {data[i]}')
-            print(f'Train X: {train_batchX[i]}')
-            print(f'Train Y: {train_batchY[i]}')
-            encoder_input_train = train_batchX[i]
-            print(f'encoder input : {encoder_input_train}')
-            decoder_input_train = train_batchY[i][:-1]
-            print(f'decoder input: {decoder_input_train}')
-            decoder_output_train = train_batchY[i][1:]
-            print(f'decoder output: {decoder_output_train}')
+    # for step in range(len(dataset.fileDict) // p.batch_size):
+    #     data, train_batchX,train_batchY = dataset.slide_seq2seq_batch(1, 10,'train',1)
+    #     for i in range(len(data)):
+    #         print(f'Data: {data[i]}')
+    #         print(f'Train X: {train_batchX[i]}')
+    #         print(f'Train Y: {train_batchY[i]}')
+    #         encoder_input_train = train_batchX[i]
+    #         print(f'encoder input : {encoder_input_train}')
+    #         decoder_input_train = train_batchY[i][:-1]
+    #         print(f'decoder input: {decoder_input_train}')
+    #         decoder_output_train = train_batchY[i][1:]
+    #         print(f'decoder output: {decoder_output_train}')
             
             # test_list = list(encoder_input_train[1:]) + list(decoder_output_train)
             # assert all(x == y for x, y in zip(test_list, list(data[i]))) == True

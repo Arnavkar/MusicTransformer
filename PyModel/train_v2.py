@@ -16,7 +16,7 @@ from Transformer.LRSchedule import LRScheduler
 
 
 if __name__ == "__main__":
-    os.environ["CUDA_VISIBLE_DEVICES"]="1"
+    #os.environ["CUDA_VISIBLE_DEVICES"]="1"
     #handle all command line arguments and parsing
     parser = argparse.ArgumentParser()
     parser.add_argument('-n','--name', type=str,required= True)
@@ -73,8 +73,8 @@ if __name__ == "__main__":
     logger.info("Number of devices: {}".format(strategy.num_replicas_in_sync))
 
     #set up datasets, including shuffling and batching
-    data = tf.data.Dataset.load("./data/tf_midi_data_train")
-    val_data = tf.data.Dataset.load("./data/tf_midi_data_validation")
+    data = tf.data.Dataset.load("./data/tf_midi_data_train_new")
+    val_data = tf.data.Dataset.load("./data/tf_midi_data_validation_new")
 
     data = data.shuffle(len(data))
     val_data = val_data.shuffle(len(data))
@@ -83,9 +83,9 @@ if __name__ == "__main__":
     val_data = val_data.batch(p.batch_size, drop_remainder=True)
 
     #Instantiate and Adam optimizer
-    optimizer = tf.keras.optimizers.Adam(0.001, p.beta_1, p.beta_2, p.epsilon)
+    optimizer = tf.keras.optimizers.Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
+    #optimizer = tf.keras.optimizers.Adam(0.001, p.beta_1, p.beta_2, p.epsilon)
 
-    
     model = TransformerModel(p)
 
     try:
