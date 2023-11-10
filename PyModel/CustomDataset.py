@@ -6,7 +6,6 @@ import pickle
 from Transformer.params import midi_test_params_v2, Params
 import tensorflow as tf
 import json
-from numba import cuda, jit
 
 #==================================================================
 #Custom Dataset 
