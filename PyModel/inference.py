@@ -50,8 +50,6 @@ class Improvisor(tf.Module):
         
         return output
 
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-n',"--model_name", type=str,required= True)
@@ -80,7 +78,7 @@ if __name__ == '__main__':
 
     _ , test_batchX,test_batchY = dataset.slide_seq2seq_batch(1, p.encoder_seq_len, 'test', 1)
     #extract a test sequence of the first 20 elements
-    test_sequence = list(test_batchX[0][0:300])
+    test_sequence = list(test_batchX[0])
 
     if not os.path.exists('./samples'):
         os.mkdir('./samples')
