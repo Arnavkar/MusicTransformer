@@ -1,6 +1,6 @@
 from CustomDataset import CustomDataset
 from tensorflow.keras.metrics import Mean
-from Transformer.model import TransformerModel
+from model import TransformerModel
 from time import time
 import tensorflow as tf
 from Transformer.params import midi_test_params_v2, Params
@@ -14,7 +14,7 @@ from Transformer.utils import custom_loss, custom_accuracy
 
 
 if __name__ == "__main__":
-    os.environ["CUDA_VISIBLE_DEVICES"]="0"
+    os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-n','--name', type=str,required= True)
@@ -83,7 +83,7 @@ if __name__ == "__main__":
 
     #Instantiate Adam optimizer (Either with LRScheduler or without)
     #optimizer = tf.keras.optimizers.Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
-    optimizer = tf.keras.optimizers.Adam(p.l_r*10, p.beta_1, p.beta_2, p.epsilon)
+    optimizer = tf.keras.optimizers.Adam(p.l_r, p.beta_1, p.beta_2, p.epsilon)
     
     #Create model
     model = TransformerModel(p)
@@ -139,23 +139,26 @@ if __name__ == "__main__":
     start_time = time()
     for epoch in range(p.epochs):    
         #=======TRAIN WITH SLIDE_SEQ2SEQ_BATCH=======
-        # for step in range(len(dataset.fileDict) // p.batch_size):
-        #     _,train_batchX,train_batchY = dataset.slide_seq2seq_batch(p.batch_size, p.encoder_seq_len, 'train')
-        #     _,val_batchX,val_batchY = dataset.slide_seq2seq_batch(p.batch_size, p.encoder_seq_len, 'validation')
+        for step in range(len(dataset.fileDict) // p.batch_size):
+            _,train_batchX,train_batchY = dataset.slide_seq2seq_batch(p.batch_size, p.encoder_seq_len, 'train')
+            _,val_batchX,val_batchY = dataset.slide_seq2seq_batch(p.batch_size, p.encoder_seq_len, 'validation')
 
-        #     model.train_step((train_batchX,train_batchY))
-        #     model.test_step((val_batchX,val_batchY))
+            model.train_step((train_batchX,train_batchY))
+            model.test_step((val_batchX,val_batchY))
+
+            if step % 50 == 0:
+                print("Step %d - Training Loss: %.4f, Training Accuracy: %.4f, Validation Loss: %.4f" % (step, model.train_loss.result(), model.train_accuracy.result(), model.val_loss.result()))
 
         #=======TRAIN WITH TF.DATA=======
-        for step,(train_batchX,train_batchY) in enumerate(data):
-            model.train_step((train_batchX,train_batchY))
-            if step % 50 == 0:
-                logger.info(f"Step {step} - Training Loss: {model.train_loss.result()}, Training Accuracy: {model.train_accuracy.result()}")
-            if step == p.steps_per_epoch:
-                break
+        # for step,(train_batchX,train_batchY) in enumerate(data):
+        #     model.train_step((train_batchX,train_batchY))
+        #     if step % 50 == 0:
+        #         logger.info(f"Step {step} - Training Loss: {model.train_loss.result()}, Training Accuracy: {model.train_accuracy.result()}")
+        #     if step == p.steps_per_epoch:
+        #         break
 
-        for _,(val_batchX,val_batchY) in enumerate(val_data):
-            model.test_step((val_batchX,val_batchY))
+        # for _,(val_batchX,val_batchY) in enumerate(val_data):
+        #     model.test_step((val_batchX,val_batchY))
         # Print epoch number and loss value at the end of every epoch
         logger.info("Epoch %d: Training Loss %.4f, Training Accuracy %.4f, Validation Loss %.4f" % (epoch + 1, model.train_loss.result(), model.train_accuracy.result(), model.val_loss.result()))
     

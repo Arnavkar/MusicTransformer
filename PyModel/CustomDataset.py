@@ -17,8 +17,8 @@ import json
 
 
 class FileData():
-    def __init__(self,fp):
-        self.fp
+    def __init__(self,file_path):
+        self.file_path = file_path
         self.current_note_index = 0
 
 class CustomDataset():
@@ -76,6 +76,9 @@ class CustomDataset():
         paths = list(self.fileDict.values())
         random.shuffle(paths)
 
+        #Convert all into FileData objects
+        #paths = [FileData(path) for path in paths]
+
         #Split paths via list splicing into train, validation and test sets
         train = paths[:int(total_num_files * 0.8)]
         
@@ -132,7 +135,7 @@ class CustomDataset():
             self.record_stats(fname, start, length, len(data),mode)
         return data
 
-    #NOTE: Taken from Github implementation of Transformer - meant for DECODER ONLY MODELS!
+    #NOTE: Taken from Github implementation of Transformer
     def slide_seq2seq_batch(self, batch_size, length, mode='train', num_tokens_to_predict = None):
         if num_tokens_to_predict is None:
             num_tokens_to_predict = length
@@ -140,8 +143,6 @@ class CustomDataset():
         #Accounting for the eos token added in extract_sequence
         x = data[:, :-num_tokens_to_predict]
         y = data[:, num_tokens_to_predict-1:]
-
-        x=np.insert(x,0,self.params.token_sos,axis = 1)
 
         #no need to add an additonal eos token, already add in extract_sequence
         y=np.insert(y,0,self.params.token_sos,axis=1)
@@ -203,8 +204,8 @@ if __name__ == "__main__":
     '''Construct and load dataset witf tf.data.Dataset'''
     p = Params(midi_test_params_v2)
     dataset = CustomDataset(p)
-    dataset.construct_tf_dataset('train', p.encoder_seq_len, p.encoder_seq_len)
-    dataset.construct_tf_dataset('validation', p.encoder_seq_len, p.encoder_seq_len)
+    # dataset.construct_tf_dataset('train', p.encoder_seq_len, p.encoder_seq_len)
+    # dataset.construct_tf_dataset('validation', p.encoder_seq_len, p.encoder_seq_len)
 
     #============================================================================================
     # Testing out slide_seq2seq - checking average number of events per midi file

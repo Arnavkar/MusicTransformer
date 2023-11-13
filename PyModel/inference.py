@@ -1,4 +1,4 @@
-from Transformer.model import TransformerModel
+from model import TransformerModel
 import tensorflow as tf
 from pickle import load
 from keras.preprocessing.sequence import pad_sequences
@@ -39,7 +39,8 @@ class Improvisor(tf.Module):
             # Write the selected prediction to the output array at the next available index
             decoder_output = decoder_output.write(i + 1, predicted_id)
             # Break if an <EOS> token is predicted
-            if predicted_id == self.params.token_eos or i > self.params.encoder_seq_len + 400:
+            if predicted_id == self.params.token_eos or i > self.params.encoder_seq_len + 100:
+                print("hit eos")
                 break
             i+=1
             print(i,predicted_id)
@@ -70,6 +71,12 @@ if __name__ == '__main__':
         checkpoint_path = './models/' + args.model_name
         checkpoint = tf.train.Checkpoint(model=model, optimizer=optimizer)
         latest_checkpoint = tf.train.latest_checkpoint(checkpoint_path)    
+        if latest_checkpoint == None:
+            latest_checkpoint = tf.train.latest_checkpoint(checkpoint_path + "/checkpoints/")  
+
+        if latest_checkpoint == None:
+            raise Exception("No checkpoint found")
+
         print(f"Latest Checkpoint path: {latest_checkpoint}")
         #Add expect_partial for lazy creation of weights
         checkpoint.restore(latest_checkpoint).expect_partial()
@@ -78,7 +85,7 @@ if __name__ == '__main__':
 
     _ , test_batchX,test_batchY = dataset.slide_seq2seq_batch(1, p.encoder_seq_len, 'test', 1)
     #extract a test sequence of the first 20 elements
-    test_sequence = list(test_batchX[0])
+    test_sequence = list(test_batchX[0][0:300])
 
     if not os.path.exists('./samples'):
         os.mkdir('./samples')

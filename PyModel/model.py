@@ -1,10 +1,10 @@
 import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Dense
-from .Encoder import Encoder
-from .Decoder import Decoder
-from .utils import padding_mask, lookahead_mask
-from .params import baseline_test_params, Params
+from Transformer.Encoder import Encoder
+from Transformer.Decoder import Decoder
+from Transformer.utils import padding_mask, lookahead_mask
+from Transformer.params import baseline_test_params, Params
 from tensorflow.keras.losses import sparse_categorical_crossentropy
 from tensorflow import math, reduce_sum, cast, equal, argmax, float32, GradientTape, TensorSpec, function, int64
 
