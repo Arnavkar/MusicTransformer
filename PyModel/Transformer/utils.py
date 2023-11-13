@@ -1,8 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.losses import sparse_categorical_crossentropy
 
-
-
 def check_shape(name,tensor,expectedshape):
         assert tensor.shape == expectedshape, f" {name} expected shape {expectedshape}, shape: {tensor.shape}"
 
@@ -19,7 +17,7 @@ def lookahead_mask(shape):
         return 1 - tf.linalg.band_part(tf.ones((shape,shape)), -1, 0)
 
 #define the custom loss function
-@tf.function
+#@tf.function
 def custom_loss(y_true,y_pred):
         # Create mask so that the zero padding values are not included in the computation of loss
         padding_mask = tf.math.logical_not(tf.equal(y_true, 0))
@@ -57,4 +55,12 @@ if __name__ == "__main__":
         assert tf.math.reduce_all(tf.equal(
                 lookahead_mask_test,
                 tf.constant([[0,1,1,1,1],[0,0,1,1,1],[0,0,0,1,1],[0,0,0,0,1],[0,0,0,0,0]],dtype=tf.float32)))
+        
+
+        test_y_true = [1,276,43,57,2,0,0,0]
+        test_y_pred = [1,276,43,2,0,0,0,0]
+
+        loss = custom_loss(test_y_true,test_y_pred)
+        print(loss)
+
 

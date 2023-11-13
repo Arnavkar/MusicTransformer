@@ -84,9 +84,11 @@ class TransformerModel(Model):
 
 if __name__ == "__main__":
     p = Params(baseline_test_params)
-    test_tensor = tf.random.uniform((p.batch_size, p.seq_len))
+    p.batch_size = 1
+    p.seq_len = 10
+    test_tensor = tf.constant([[1,234,243,18,37,24,18,57,89,2]])
     model = TransformerModel(p)
-    output = model(test_tensor, test_tensor, True)
+    output = model((test_tensor, test_tensor),True)
     print(f'Transformer Model output: {output}')
     model.summary()
 

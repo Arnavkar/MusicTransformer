@@ -3,6 +3,8 @@ import tensorflow as tf
 from .utils import check_shape
 import json
 
+#No Longer in use
+
 @tf.keras.saving.register_keras_serializable()
 class AddNormalization(Layer):
     def __init__(self, **kwargs):
@@ -11,7 +13,7 @@ class AddNormalization(Layer):
     
     def call(self, x, sublayer_x):
         add = x + sublayer_x     
-        return self.layer_norm(add)
+        return self.layer_norm(x)
     
     #Config to serialize Custom Layer
     #Explicit Desrialization not required because we are are not passing layers or models to __init__()
@@ -23,9 +25,14 @@ class AddNormalization(Layer):
         return {**base_config, **config}
     
 if __name__ == "__main__":
-    test_tensor = tf.constant([[1,3,4,2,0]])
+    test = [1,3,4,2,0]
+    test_tensor = tf.constant([test])
     addnorm_layer = AddNormalization()
     addnorm_output = addnorm_layer(test_tensor, test_tensor)
+
+    divide_value = sum(test)*2
+    check = [x*2/divide_value for x in test]
+    print(check)
     print(f"Addnorm output: {addnorm_output}")
 
     layer_config = addnorm_layer.get_config()
