@@ -8,6 +8,7 @@ from .AddNormalizationLayer import AddNormalization
 from .utils import check_shape
 from .params import baseline_test_params, Params
 
+@tf.keras.saving.register_keras_serializable()
 class EncoderLayer(Layer):
     def __init__(self, p:Params, **kwargs):
         super(EncoderLayer, self).__init__(**kwargs)

@@ -34,13 +34,13 @@ class CustomDataset():
         self.batch_size = p.batch_size
         self.partition_by_filecount()
 
-        if self.params.record_data_stats:
-            self.dataset_stats = {
-                "train":{},
-                "validation":{},
-                "test":{}
-            }
-            self.set_up_stats()
+        # if self.params.record_data_stats:
+        #     self.dataset_stats = {
+        #         "train":{},
+        #         "validation":{},
+        #         "test":{}
+        #     }
+        #     self.set_up_stats()
     
     def get_maestroJSON(self, path="./data/raw/maestro-v3.0.0.json") -> list:
         with open(path) as f:
