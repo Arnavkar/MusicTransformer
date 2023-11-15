@@ -81,6 +81,34 @@ class TransformerModel(Model):
     @property
     def metrics(self):
         return [self.train_loss, self.train_accuracy, self.val_loss]
+    
+
+class DecoderModel(Model):
+    def __init__(self,p:Params,**kwargs):
+        super(DecoderModel,self).__init__(**kwargs)
+        self.debug = p.debug
+        self.model_dim = p.model_dim
+        self.decoder = Decoder(p)
+        self.dense = Dense(p.decoder_vocab_size)
+        self.train_loss = tf.keras.metrics.Mean(name="train_loss")
+        self.train_accuracy = tf.keras.metrics.Mean(name="train_accuracy")
+        self.val_loss = tf.keras.metrics.Mean(name='val_loss')
+        self.logger = None
+    
+    def compile(self, optimizer,loss_fn,accuracy_fn,logger=None):
+        super().compile()
+        self.optimizer = optimizer
+        self.compute_loss = loss_fn
+        self.compute_accuracy = accuracy_fn
+        if logger:
+            self.logger = logger
+
+    def call(self, input_data, training):
+        pass
+        
+    
+
+
 
 if __name__ == "__main__":
     p = Params(baseline_test_params)

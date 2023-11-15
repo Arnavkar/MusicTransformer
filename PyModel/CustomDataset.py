@@ -10,7 +10,7 @@ import json
 #==================================================================
 #Custom Dataset 
 # 
-# Subclasses Kera Sequence object, must implement __getitem__ and __len__ methods ?
+# Subclasses Keras Sequence object, must implement __getitem__ and __len__ methods ?
 # __getitem__ returns a batch of data, where the batch size is the first dimension of the resturned array
 # __len__ returns the number of batches in the sequence
 #==================================================================
@@ -22,16 +22,15 @@ class FileData():
         self.current_note_index = 0
 
 class CustomDataset():
-    def __init__(self,p:Params, path="./data/processed") -> None:
+    def __init__(self,p:Params, path="./data/processed",min_duration=None,min_event_length=None) -> None:
         self.maestroJSON = self.get_maestroJSON()
-        self.fileDict = self.get_encoded_files(path)
+        self.fileDict = self.get_encoded_files(path,min_duration,min_event_length)
         self.model_data = {
             "train": [],
             "validation": [],
             "test": []
         }
         self.params = p
-        self.batch_size = p.batch_size
         self.partition_by_filecount()
 
         # if self.params.record_data_stats:
@@ -50,7 +49,7 @@ class CustomDataset():
     def __repr__(self):
         return "<class CustomDataset has {} files, {} for training, {} for validation, {} for testing>".format(str(len(self.fileDict)), str(len(self.model_data["train"])), str(len(self.model_data["validation"])), str(len(self.model_data["test"])))
     
-    def get_encoded_files(self,path) -> list:
+    def get_encoded_files(self,path,min_duration,min_event_length) -> list:
         if not os.path.exists(path):
             os.mkdir(path)
 
@@ -58,7 +57,7 @@ class CustomDataset():
         lambda_func = lambda x: os.path.join(path, x.split('/')[-1] +'.pickle')
 
         #From the json files, get the indexed midi filenames
-        midi_filenames_from_json = { key : lambda_func(value) for key, value in self.maestroJSON['midi_filename'].items()}
+        midi_filenames_from_json = { int(key) : lambda_func(value) for key, value in self.maestroJSON['midi_filename'].items()}
 
         #Check for duplicate midi filenames  ensure no duplicates found
         dup_dict = {}
@@ -66,6 +65,30 @@ class CustomDataset():
             dup_dict.setdefault(value, set()).add(key)
         result = [key for key, values in dup_dict.items() if len(values) > 1]
         assert len(result) == 0, f"Duplicate midi filenames found: {result}"
+
+        #Remove midi files that are too short in length by duration
+        if min_duration is not None:
+            i = 0
+            while i < len(midi_filenames_from_json):
+                duration = self.maestroJSON['duration'][f'{i}']
+                if duration < min_duration:
+                    print(f"Removed file {midi_filenames_from_json[i]}, Duration of is {duration}, which is less than {min_duration}")
+                    del midi_filenames_from_json[i]
+                i+=1
+            print(f"Number of midi files remaining after removing files less than {min_duration} seconds: {len(midi_filenames_from_json)}")
+        
+        #Remove midi files that are too short in length by number of events
+        if min_event_length is not None:
+            i = 0
+            while i < len(midi_filenames_from_json):
+                with open(midi_filenames_from_json[i], 'rb') as f:
+                    data = pickle.load(f)
+                if len(data) < min_event_length:
+                    print(f"Removed file {midi_filenames_from_json[i]}, Length of is {len(data)}, which is less than {min_event_length}")
+                    del midi_filenames_from_json[i]
+                i+=1
+            print(f"Number of midi files remaining after removing files less than {min_event_length} events: {len(midi_filenames_from_json)}")
+
 
         return midi_filenames_from_json
 
@@ -76,8 +99,8 @@ class CustomDataset():
         paths = list(self.fileDict.values())
         random.shuffle(paths)
 
-        #Convert all into FileData objects
-        #paths = [FileData(path) for path in paths]
+        # Convert all into FileData objects
+        paths = [FileData(path) for path in paths]
 
         #Split paths via list splicing into train, validation and test sets
         train = paths[:int(total_num_files * 0.8)]
@@ -102,13 +125,13 @@ class CustomDataset():
         files = random.sample(files, batch_size)
 
         #from each file, extract a random sequence of length
-        data = [self.extract_sequence(file, length, mode) for file in files]
+        data = [self.extract_sequence_v2(file, length, mode) for file in files]
         
         for array in data:
             assert len(array) == length-1, f"Length of array {len(array)} is not equal to length {length-1}"
         return np.array(data,int)
     
-    #NOTE: Taken from Github implementation of Transformer - currently using construct tf_dataset_method
+    #NOTE: Taken from Github implementation of Transformer - no longer using this method
     def extract_sequence(self, fname, length, mode):
         #Grab a random sample of length len from a while
         with open(fname, 'rb') as f:
@@ -131,87 +154,166 @@ class CustomDataset():
             while len(data) < length-1:
                 data = np.append(data, self.params.pad_token)
 
-        if self.params.record_data_stats:
-            self.record_stats(fname, start, length, len(data),mode)
-        return data
+        # if self.params.record_data_stats:
+        #     self.record_stats(fname, start, length, len(data),mode)
 
-    #NOTE: Taken from Github implementation of Transformer
-    def slide_seq2seq_batch(self, batch_size, length, mode='train', num_tokens_to_predict = None):
-        if num_tokens_to_predict is None:
-            num_tokens_to_predict = length
+        return data
+    
+    #v2 of extract_sequence, grabs a sequence of size 'length' from file, starting at the start index 0. Then, shifts the sequence down by 1
+    def extract_sequence_v2(self, file_data, length, mode):
+        #Grab a random sample of length len from a while
+        with open(file_data.file_path, 'rb') as f:
+            data = pickle.load(f)
+
+        #pick up from the last recorded start_index
+        start_index = file_data.current_note_index
+
+        #if the start index + length is less than the file length, we can grab a sequence of length
+        if start_index + length <= len(data):
+            #extract a sequence of length len from the file
+            data = data[start_index:start_index + length] 
+
+            #update the start index for the next sequence
+            file_data.current_note_index += 1
+        
+        else:
+            #if there is not enough data left in the file, start from start index and take the remaining events in the file, padding the remaining sequence with zeros
+            data = data[start_index:]
+            while len(data) < length:
+                data = np.append(data, self.params.pad_token)
+
+            #reset_the_start_index_back_to_zero
+            file_data.current_note_index = 0
+            
+            return data
+
+    #NOTE: Taken from Github implementation of Transformer - Best for training decoder directly
+            #if training decoder, num_tokens_to_predict is 0, we teacher force the entire sequence
+            #else, we take a sequence of length to pass to the encoder, and pass the sequence shifted by num_tokens_to_predict to the decoder
+    def seq2seq_batch(self, batch_size, length, mode='train', num_tokens_to_predict = 0):
+
         data = self.get_batch(batch_size, length+num_tokens_to_predict, mode)
         #Accounting for the eos token added in extract_sequence
-        x = data[:, :-num_tokens_to_predict]
-        y = data[:, num_tokens_to_predict-1:]
+        x = data[:, 0:length]
+        y = data[:, length:length + num_tokens_to_predict]
 
-        #no need to add an additonal eos token, already add in extract_sequence
+        #add sos and eos tokens to the y sequence fed to the decoder
         y=np.insert(y,0,self.params.token_sos,axis=1)
+        y=np.append(y,self.params.token_eos,axis=1)
         return data, x, y
     
-    #Construct a tf dataset directly from the midi files                   
-    def construct_tf_dataset(self,mode,seq_len,stride = 1):
+    def format_dataset(self, x, y):
+        return (
+            {
+                "encoder_inputs": x,
+                "decoder_inputs": y[:, :-1],
+            },
+            y[:, 1:],
+        )
+    #Construct a tf dataset directly from the midi files - loads everything into memory                
+    def construct_tf_dataset(self,mode,seq_len,stride = 1,for_baseline=False,num_files=None):
         current_file_index = 0
         current_note_index = 0
-        paths = self.model_data[mode]
+        if num_files is not None:
+            paths = self.model_data[mode][:num_files]
+        else:
+            paths = self.model_data[mode]
         x, y = [],[]
         #while looping through list of files
         while current_file_index < len(paths):
-            fp = paths[current_file_index]
+            file_data = paths[current_file_index]
             # print(fp)
-            with open(fp, 'rb') as f: 
-                f = open(fp, 'rb')
+            with open(file_data.file_path, 'rb') as f: 
                 test_data = pickle.load(f)
 
             #while looping through each file, grab a sequence of length seq_len 
             #stride sets the distance between each grabbed sequence
             #This while loop ensures we don't grab sequences that are too short, they are discarded
             while current_note_index + seq_len*2 + 1 < len(test_data):
-
                 x_start = current_note_index
                 x_end = current_note_index + seq_len
                 sequence_x = test_data[x_start:x_end]
 
                 y_start = x_end 
                 y_end = x_end + seq_len
-                sequence_y = test_data[y_start:y_end]
+                sequence_y = test_data[y_start:y_end-1]
                 sequence_y = np.insert(sequence_y,0,self.params.token_sos)
                 sequence_y = np.append(sequence_y,self.params.token_eos)
                 x.append(sequence_x)
                 y.append(sequence_y)
                 current_note_index += stride
             
-            print(f'File {current_file_index} at path {fp} complete: {current_note_index} notes processed out of {len(test_data)}')
+            print(f'File {current_file_index} at path {file_data.file_path} complete: {current_note_index} notes processed out of {len(test_data)}')
             #move to next file
             current_file_index += 1
             current_note_index = 0
-        
-        assert len(x) == len(y), f"num of x samples should equal to y samples, {len(x)} != {len(y)}"
-        for i in range(len(x)):
-            assert len(x[i]) == len(y[i])-2, f"Length of x elem should be 2 less than y elem: {len(x[i])} != {len(y[i])}"
-            # assert x[i][0] == self.params.token_sos, f"First token of x elem at {i} is not sos token: {x[i][0]} != {self.params.token_sos}"
-            assert y[i][0] == self.params.token_sos, f"First token of y elem at {i} is not sos token: {y[i][0]} != {self.params.token_sos}"
-            #assert x[i][-1] == self.params.token_eos, f"Last token of x elem at {i} is not eos token: {x[i][-1]} != {self.params.token_eos}"
-            assert y[i][-1] == self.params.token_eos, f"Last token of y elem at {i} is not eos token: {y[i][-1]} != {self.params.token_eos}"
+
+        # assert len(x) == len(y), f"num of x samples should equal to y samples, {len(x)} != {len(y)}"
+        # for i in range(len(x)):
+        #     assert len(x[i]) == len(y[i]), f"Length of x elem should be 2 less than y elem: {len(x[i])} != {len(y[i])}"
+        #     # assert x[i][0] == self.params.token_sos, f"First token of x elem at {i} is not sos token: {x[i][0]} != {self.params.token_sos}"
+        #     assert y[i][0] == self.params.token_sos, f"First token of y elem at {i} is not sos token: {y[i][0]} != {self.params.token_sos}"
+        #     #assert x[i][-1] == self.params.token_eos, f"Last token of x elem at {i} is not eos token: {x[i][-1]} != {self.params.token_eos}"
+        #     assert y[i][-1] == self.params.token_eos, f"Last token of y elem at {i} is not eos token: {y[i][-1]} != {self.params.token_eos}"
         #     assert (x[i][2:-1] == y[i][1:-2]).all(), f"Sequence of x elem at {i} is not equal to sequence of y elem at {i}: {x[i][2:-1]} != {y[i][1:-2]}"
 
         dataset = tf.data.Dataset.from_tensor_slices((x,y))
-        path = os.path.join("./data/tf_midi_data_" + mode + "_new")
-        tf.data.Dataset.save(dataset, path)
-        print(f"Dataset saved at {path}")
-
+        print("Tf dataset constructed")
+        if for_baseline == False:
+            dataset = dataset.batch(self.params.batch_size, drop_remainder=True)
+            path = os.path.join(f"./data/tf_midi_" + mode + f"_{seq_len}_{stride}")
+            tf.data.Dataset.save(dataset, path)
+            print(f"Dataset saved at {path}")
+        else:
+            dataset = dataset.batch(self.params.batch_size, drop_remainder=True)
+            dataset = dataset.map(self.format_dataset)
+            path = os.path.join(f"./data/tf_midi_" + mode + f"_{seq_len}_{stride}_baseline")
+            tf.data.Dataset.save(dataset, path)
+            print(f"Dataset saved at {path}")
+        
+        return path
 
 if __name__ == "__main__":
-    '''Construct and load dataset witf tf.data.Dataset'''
+    '''Construct and load dataset with tf.data.Dataset'''
     p = Params(midi_test_params_v2)
-    dataset = CustomDataset(p)
-    # dataset.construct_tf_dataset('train', p.encoder_seq_len, p.encoder_seq_len)
-    # dataset.construct_tf_dataset('validation', p.encoder_seq_len, p.encoder_seq_len)
+    data = CustomDataset(p, min_event_length=p.max_seq_len)
+
+    #============================================================================================
+    # Testing out construct_tf_dataset - very memory intensive to store all possible sequences in memory directly
+    #============================================================================================
+    train_path = data.construct_tf_dataset(f'train', p.encoder_seq_len, 1,for_baseline=True,num_files=10)
+    val_path = data.construct_tf_dataset(f'validation', p.encoder_seq_len, 1,for_baseline=True,num_files=2)
+    test_path = data.construct_tf_dataset(f'test', p.encoder_seq_len, 1,for_baseline=True,num_files=2)
+
+
+    train = tf.data.Dataset.load(train_path)
+    val = tf.data.Dataset.load(val_path)
+    test = tf.data.Dataset.load(test_path)
+
+    print("TRAIN DATASET------------------")
+    for inputs, targets in train.take(1):
+        print(f'inputs["encoder_inputs"].shape: {inputs["encoder_inputs"].shape}')
+        print(f'inputs["decoder_inputs"].shape: {inputs["decoder_inputs"].shape}')
+        print(f"targets.shape: {targets.shape}")
+
+    print("VALIDATION DATASET------------------")
+    for inputs, targets in val.take(1):
+        print(f'inputs["encoder_inputs"].shape: {inputs["encoder_inputs"].shape}')
+        print(f'inputs["decoder_inputs"].shape: {inputs["decoder_inputs"].shape}')
+        print(f"targets.shape: {targets.shape}")
+
+    print("TEST DATASET------------------")
+    for inputs, targets in test.take(1):
+        print(f'inputs["encoder_inputs"].shape: {inputs["encoder_inputs"].shape}')
+        print(f'inputs["decoder_inputs"].shape: {inputs["decoder_inputs"].shape}')
+        print(f"targets.shape: {targets.shape}")
+
 
     #============================================================================================
     # Testing out slide_seq2seq - checking average number of events per midi file
     #============================================================================================
     # for step in range(len(dataset.fileDict) // p.batch_size):
-    #     data, train_batchX,train_batchY = dataset.slide_seq2seq_batch(1, 10,'train',1)
+    #     data, train_batchX,train_batchY = dataset.seq2seq_batch(1, 10,'train',1)
     #     for i in range(len(data)):
     #         print(f'Data: {data[i]}')
     #         print(f'Train X: {train_batchX[i]}')
@@ -252,6 +354,7 @@ if __name__ == "__main__":
 
     #         total_events += length
     #         accumulated_events += encoded_midi_data
+    # print(sorted(lengths))
 
     # avg_event = total_events / numfiles
     # acc1 = accumulated_events[0:int(len(accumulated_events)/2)]

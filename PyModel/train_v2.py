@@ -13,6 +13,7 @@ import os
 from tqdm.notebook import tqdm, trange
 import logging
 from Transformer.LRSchedule import LRScheduler
+from baselineModel import createBaselineTransformer
 
 
 if __name__ == "__main__":
@@ -25,6 +26,7 @@ if __name__ == "__main__":
     parser.add_argument('-b','--batch_size', type=int, required=False)
     parser.add_argument('-s','--max_seq_len',type=int, required=False)
     parser.add_argument('-l','--num_layers', type=int, required=False)
+    parser.add_argument('--with-baseline', type=bool, required=False)
     args = parser.parse_args()
 
     if not args.overwrite and os.path.exists('./models/' + args.name + '/'):
@@ -73,20 +75,25 @@ if __name__ == "__main__":
     logger.info("Number of devices: {}".format(strategy.num_replicas_in_sync))
 
     #set up datasets, including shuffling and batching
-    data = tf.data.Dataset.load("./data/tf_midi_data_train_new")
-    val_data = tf.data.Dataset.load("./data/tf_midi_data_validation_new")
+    train_data_path = "./data/tf_midi_train_512_1"
+    val_data_path = "./data/tf_midi_validation_512_1"
+
+    if args.with_baseline:
+        data=tf.data.Dataset.load(train_data_path+"_baseline")
+        val_data=tf.data.Dataset.load(val_data_path+"_baseline")
+    else:
+        data = tf.data.Dataset.load(train_data_path)
+        val_data = tf.data.Dataset.load(val_data_path)
 
     data = data.shuffle(len(data))
     val_data = val_data.shuffle(len(data))
 
-    data = data.batch(p.batch_size, drop_remainder=True)
-    val_data = val_data.batch(p.batch_size, drop_remainder=True)
+    # data = data.batch(p.batch_size, drop_remainder=True)
+    # val_data = val_data.batch(p.batch_size, drop_remainder=True)
 
     #Instantiate and Adam optimizer
     optimizer = tf.keras.optimizers.Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
-    #optimizer = tf.keras.optimizers.Adam(0.001, p.beta_1, p.beta_2, p.epsilon)
-
-    model = TransformerModel(p)
+    #optimizer = tf.keras.optimizers.Adam(0.0001, p.beta_1, p.beta_2, p.epsilon)
 
     try:
         logger.info("Saving Params...")
@@ -99,11 +106,19 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(e)
 
-    with strategy.scope():
+    # with strategy.scope():
+    if args.with_baseline:
+        print("Creating baseline transformer...")
+        model = createBaselineTransformer(p)
+        model.compile(
+            optimizer = optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"]
+        )
+    else:
+        model = TransformerModel(p)
         model.compile(optimizer = optimizer,
-                      loss_fn = custom_loss,
-                      accuracy_fn = custom_accuracy,
-                      logger = logger)
+                    loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+                    accuracy_fn = custom_accuracy,
+                    logger = logger)
 
     start_time = time()
     model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
@@ -126,11 +141,10 @@ if __name__ == "__main__":
     try:
         logger.info("Training model...")
         history = model.fit(
-            data.repeat(), 
+            data, 
             epochs = p.epochs,
             validation_data = val_data,
             callbacks = [model_checkpoint, early_stopping, tensorboard],
-            steps_per_epoch = 500,
         )
         logger.info("Training Complete! Total time taken: %.2fs" % (time() - start_time))  
         logger.info("Saving History...")
