@@ -11,6 +11,9 @@ from midi_neural_preprocessor.processor import decode_midi
 import os
 from Transformer.utils import custom_loss
 from datetime import datetime
+from Transformer.LRSchedule import LRScheduler
+from baselineModel import createBaselineTransformer
+
 
 class Improvisor(tf.Module):
     def __init__(self,transformer_model,p:Params, **kwargs):
@@ -29,6 +32,7 @@ class Improvisor(tf.Module):
         decoder_output = decoder_output.write(0,start_token)
         
         i = 0
+        print("Decoding....")
         while True:
             prediction = self.model((encoder_input, tf.transpose(decoder_output.stack())), training=False)
             prediction = prediction[:, -1, :]
@@ -40,7 +44,7 @@ class Improvisor(tf.Module):
             # Write the selected prediction to the output array at the next available index
             decoder_output = decoder_output.write(i + 1, predicted_id)
             # Break if an <EOS> token is predicted
-            if predicted_id == self.params.token_eos or i > self.params.encoder_seq_len + 100:
+            if predicted_id == self.params.token_eos or i == self.params.decoder_seq_len-1:
                 print("hit eos")
                 break
             i+=1
@@ -53,6 +57,8 @@ class Improvisor(tf.Module):
         return output
 
 if __name__ == '__main__':
+    os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-n',"--model_name", type=str,required= True)
     parser.add_argument('-c','--checkpoint_type', type=str, required=True)
@@ -62,7 +68,9 @@ if __name__ == '__main__':
     p = Params(model_params)
     dataset = CustomDataset(p)
     model = TransformerModel(p)
-    optimizer = tf.keras.optimizers.Adam(p.l_r, p.beta_1, p.beta_2, p.epsilon)
+    
+    #model = createBaselineTransformer(p)
+    optimizer = tf.keras.optimizers.Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
 
     if args.checkpoint_type == 'pb':
         model = tf.keras.models.load_model('./models/' + args.model_name + '/checkpoints')
@@ -70,23 +78,52 @@ if __name__ == '__main__':
     elif args.checkpoint_type == 'ckpt':
     #instantiate model
         checkpoint_path = './models/' + args.model_name
-        checkpoint = tf.train.Checkpoint(model=model, optimizer=optimizer)
         latest_checkpoint = tf.train.latest_checkpoint(checkpoint_path)    
+
         if latest_checkpoint == None:
-            latest_checkpoint = tf.train.latest_checkpoint(checkpoint_path + "/checkpoints/")  
+            print("Retrying")
+            latest_checkpoint = tf.train.latest_checkpoint(checkpoint_path + "/checkpoints")
 
         if latest_checkpoint == None:
             raise Exception("No checkpoint found")
 
         print(f"Latest Checkpoint path: {latest_checkpoint}")
         #Add expect_partial for lazy creation of weights
-        checkpoint.restore(latest_checkpoint).expect_partial()
+        model.load_weights(latest_checkpoint).expect_partial()
+        print("Checkpoint restored!")
     
     improvisor = Improvisor(model,p)
 
-    _ , test_batchX,test_batchY = dataset.slide_seq2seq_batch(1, p.encoder_seq_len, 'test', 1)
-    #extract a test sequence of the first 20 elements
-    test_sequence = list(test_batchX[0][0:300])
+    #TEST WITH CUSTOM TF DATASET
+    #test_path = "./data/tf_midi_train_512_1_baseline"
+    test_path = "./data/tf_midi_data_validation"
+    test = tf.data.Dataset.load(test_path)
+    # model.compile(
+    #     optimizer = optimizer, loss="sparse_categorical_crossentropy"
+    # )
+    # model.evaluate(test, verbose=1)
+
+    test_sequences = output_sequences = actual_sequences = None
+
+    for inputs, targets in test.take(1):
+        # test_sequences = inputs["encoder_inputs"]
+        # actual_sequences = targets
+        # print(f'inputs["encoder_inputs"].shape: {inputs["encoder_inputs"].shape}')
+        # print(f"targets.shape: {targets.shape}")
+
+        test_sequences = inputs
+        actual_sequences = targets
+
+    # test_sequence = list(test_sequences.numpy()[0])
+    # actual_sequence = list(actual_sequences.numpy()[0])
+
+    test_sequence = list(test_sequences.numpy())
+    actual_sequence = list(actual_sequences.numpy())
+
+    #TEST WITH seq2seq batch method from custom dataset
+    # _ , test_batchX,test_batchY = dataset.seq2seq_batch(1, p.encoder_seq_len, 'test', 1)
+    # #extract a test sequence of the first 20 elements
+    # test_sequence = list(test_batchX[0][0:300])
 
     if not os.path.exists('./samples'):
         os.mkdir('./samples')
@@ -101,21 +138,14 @@ if __name__ == '__main__':
         print('input.mid written')
 
         output_sequence = list(improvisor([test_sequence]))
+        print(output_sequence)
         decode_midi(output_sequence,file_path=sample_path + 'output.midi')
         print('output.mid written')
 
-        decode_midi(test_batchX[0],file_path=sample_path + 'actual.midi')
+        decode_midi(actual_sequence,file_path=sample_path + 'actual.midi')
         print('actual.mid written')
 
     except Exception as e:
         os.rmdir(sample_path)
         print(e)
     print("Inference complete")
-
-    
-
-
-
-
-
-

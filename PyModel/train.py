@@ -11,7 +11,7 @@ import json
 import os
 import logging
 from Transformer.utils import custom_loss, custom_accuracy
-
+from train_utils import setup_experiment
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
@@ -26,56 +26,8 @@ if __name__ == "__main__":
     parser.add_argument('-f','--save_freq',type=int ,required=False)
     args = parser.parse_args()
 
-    #Check if model arleady exists - ask about override
-    if os.path.exists('./models/' + args.name + '/'):
-        print('Model already exists - do you want to continue? Y/N')
-        char = input().lower()
-        while char not in ['y','n']:
-            print('Invalid input - do you want to continue? Y/N')
-            char = input().lower()
-        if char == 'n':
-            exit()
-    
-    #Set up base path for model under models directory
-    base_path = './models/' + args.name +  '/'
-    if not os.path.exists(base_path):
-        os.mkdir(base_path)
-
-    #Initilaize and adjust params based on cmd line arguments
-    p = Params(midi_test_params_v2)
-  
-    if args.epochs:
-        p.epochs = args.epochs
-    
-    if args.max_seq_len:
-        p.encoder_seq_len = args.max_seq_len
-        p.decoder_seq_len = args.max_seq_len
-
-    if args.num_layers:
-        p.num_encoder_layers = args.num_layers
-        p.num_decoder_layers = args.num_layers
-
-    if args.batch_size:
-        p.batch_size = args.batch_size
-
-    if args.steps_per_epoch:
-        p.steps_per_epoch = args.steps_per_epoch
-
-    if args.save_freq:
-        p.save_freq = args.save_freq
-
-    #set up logger
-    logger = logging.getLogger('tensorflow')
-    logger.setLevel(logging.DEBUG)
-
-    #file logger
-    fh = logging.FileHandler(base_path + 'output.log', mode='w', encoding='utf-8')
-    fh.setLevel(logging.DEBUG)
-
-    # create formatter and add it to the handlers
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
+    #Set up experiment
+    base_path, p, logger = setup_experiment(args)
 
     # Create a MirroredStrategy to run training across multiple GPUs with single machine
     strategy = tf.distribute.MirroredStrategy()
@@ -116,17 +68,6 @@ if __name__ == "__main__":
         base_path + "checkpoints",
         max_to_keep=None
     )
-
-    try:
-        logger.info(f"Saving Params...{json.dumps(p.get_params(),indent=4)}")
-        with open(base_path+'params.json', 'w') as file:
-            param_dict = p.get_params()
-            param_dict['name'] = args.name
-            param_dict['training_date'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-            json.dump(param_dict, file, indent=4)
-        logger.info("Params Saved!")
-    except Exception as e:
-        logger.error(e)
     
     train_loss_dict = {}
     val_loss_dict = {}

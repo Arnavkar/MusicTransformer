@@ -6,6 +6,7 @@ import pickle
 from Transformer.params import midi_test_params_v2, Params
 import tensorflow as tf
 import json
+import string
 
 #==================================================================
 #Custom Dataset 
@@ -14,7 +15,6 @@ import json
 # __getitem__ returns a batch of data, where the batch size is the first dimension of the resturned array
 # __len__ returns the number of batches in the sequence
 #==================================================================
-
 
 class FileData():
     def __init__(self,file_path):
@@ -28,10 +28,16 @@ class CustomDataset():
         self.model_data = {
             "train": [],
             "validation": [],
-            "test": []
+            "test": [],
         }
+        self.train_complete_files = []
         self.params = p
-        self.partition_by_filecount()
+
+        # self.partition_by_filecount()
+        self.partition_by_maestro_split()
+
+        self.convert_all_to_fileData()
+        #random.seed(self.params.seed)
 
         # if self.params.record_data_stats:
         #     self.dataset_stats = {
@@ -99,9 +105,6 @@ class CustomDataset():
         paths = list(self.fileDict.values())
         random.shuffle(paths)
 
-        # Convert all into FileData objects
-        paths = [FileData(path) for path in paths]
-
         #Split paths via list splicing into train, validation and test sets
         train = paths[:int(total_num_files * 0.8)]
         
@@ -115,6 +118,31 @@ class CustomDataset():
         self.model_data["train"] = train
         self.model_data["validation"] = validation
         self.model_data["test"] = test
+    
+    def partition_by_maestro_split(self):
+        train = []
+        validation = []
+        test = []
+        for i in self.fileDict.keys():
+            if self.maestroJSON['split'][f'{i}'] == 'train':
+                train.append(self.fileDict[i])
+
+            elif self.maestroJSON['split'][f'{i}'] == 'validation':
+                validation.append(self.fileDict[i])
+
+            elif self.maestroJSON['split'][f'{i}'] == 'test':
+                test.append(self.fileDict[i])
+            else:
+                print(f"ERROR: {self.maestroJSON['split'][f'{i}']} is not a valid split")
+                
+        self.model_data["train"] = train
+        self.model_data["validation"] = validation
+        self.model_data["test"] = test
+
+    def convert_all_to_fileData(self):
+        for mode in self.model_data.keys():
+            for i in range(len(self.model_data[mode])):
+                self.model_data[mode][i] = FileData(self.model_data[mode][i])
             
     #NOTE: Taken from Github implementation of Transformer - currently using construct tf_dataset_method
     def get_batch(self, batch_size, length, mode):
@@ -127,8 +155,8 @@ class CustomDataset():
         #from each file, extract a random sequence of length
         data = [self.extract_sequence_v2(file, length, mode) for file in files]
         
-        for array in data:
-            assert len(array) == length-1, f"Length of array {len(array)} is not equal to length {length-1}"
+        # for array in data:
+        #     assert len(array) == length-1, f"Length of array {len(array)} is not equal to length {length-1}"
         return np.array(data,int)
     
     #NOTE: Taken from Github implementation of Transformer - no longer using this method
@@ -169,23 +197,34 @@ class CustomDataset():
         start_index = file_data.current_note_index
 
         #if the start index + length is less than the file length, we can grab a sequence of length
-        if start_index + length <= len(data):
+        if start_index + length < len(data):
             #extract a sequence of length len from the file
             data = data[start_index:start_index + length] 
 
             #update the start index for the next sequence
             file_data.current_note_index += 1
-        
+
+
         else:
-            #if there is not enough data left in the file, start from start index and take the remaining events in the file, padding the remaining sequence with zeros
+            #if we either 1) perfectly hit the last event in the sequence with a full sequence 2) we hit the end of the file early and need to pad with zeros
+            #if there is not enough data left in the file (only possible with stride > 1) then start from start index and take the remaining events in the file, padding the remaining sequence with zeros
             data = data[start_index:]
             while len(data) < length:
                 data = np.append(data, self.params.pad_token)
 
-            #reset_the_start_index_back_to_zero
+            self.move_to_complete_list(file_data,mode)
+
+        return data
+        
+    #Move a fileData object from the model_data[mode] list to the train_complete_files list
+    def move_to_complete_list(self,file_data,mode):
+        if mode == 'train':
+            self.train_complete_files.append(file_data)
+            self.model_data[mode].remove(file_data)
             file_data.current_note_index = 0
-            
-            return data
+        else:
+            print(f"ERROR: File from {mode} set should not be here")
+
 
     #NOTE: Taken from Github implementation of Transformer - Best for training decoder directly
             #if training decoder, num_tokens_to_predict is 0, we teacher force the entire sequence
@@ -201,15 +240,38 @@ class CustomDataset():
         y=np.insert(y,0,self.params.token_sos,axis=1)
         y=np.append(y,self.params.token_eos,axis=1)
         return data, x, y
+
+    def calculate_num_batches(self, mode, seq_len, stride):
+        num_examples = 0
+        for file in self.model_data[mode]:
+            with open(file.file_path, 'rb') as f:
+                data = pickle.load(f)
+                #seq_len multiplied by two for the encoder and decoder seq respectively
+            num_examples += (len(data) - seq_len*2) // stride
+        num_batches = int(num_examples / self.params.batch_size)
+        remaining_examples = num_examples % self.params.batch_size
+        
+        print(f"Number of batches: {num_batches}, Number of remaining examples: {remaining_examples}")
+        assert num_batches*self.params.batch_size + remaining_examples == num_examples
+
+        return num_batches
     
-    def format_dataset(self, x, y):
+    def __len__(self):
+        return self.calculate_num_batches('train', self.params.encoder_seq_len*2, 1)
+    
+    def __getitem__(self, idx):
+        batch = self.seq2seq_batch(self.params.batch_size, self.params.encoder_seq_len, "train", self.params.decoder_seq_len)
+
+    
+    def __format_dataset(self, x, y):
         return (
             {
                 "encoder_inputs": x,
                 "decoder_inputs": y[:, :-1],
             },
             y[:, 1:],
-        )
+    )
+    
     #Construct a tf dataset directly from the midi files - loads everything into memory                
     def construct_tf_dataset(self,mode,seq_len,stride = 1,for_baseline=False,num_files=None):
         current_file_index = 0
@@ -258,56 +320,86 @@ class CustomDataset():
         #     assert (x[i][2:-1] == y[i][1:-2]).all(), f"Sequence of x elem at {i} is not equal to sequence of y elem at {i}: {x[i][2:-1]} != {y[i][1:-2]}"
 
         dataset = tf.data.Dataset.from_tensor_slices((x,y))
+        dataset_path = f"./data/tf_midi_" + mode + f"_{seq_len}_{stride}"
         print("Tf dataset constructed")
-        if for_baseline == False:
-            dataset = dataset.batch(self.params.batch_size, drop_remainder=True)
-            path = os.path.join(f"./data/tf_midi_" + mode + f"_{seq_len}_{stride}")
-            tf.data.Dataset.save(dataset, path)
-            print(f"Dataset saved at {path}")
-        else:
-            dataset = dataset.batch(self.params.batch_size, drop_remainder=True)
-            dataset = dataset.map(self.format_dataset)
-            path = os.path.join(f"./data/tf_midi_" + mode + f"_{seq_len}_{stride}_baseline")
-            tf.data.Dataset.save(dataset, path)
+        if for_baseline == True:
+            path += "_baseline"
+            dataset = dataset.map(self.__format_dataset)
+ 
+        if os.path.exists(path):
+            print('Dataset already exists - do you want to overwrite? Y/N')
+            char = input().lower()
+            while char not in ['y','n']:
+                print('Invalid input - do you want to overwrite? Y/N')
+                char = input().lower()
+            if char == 'n':
+                #Append a random string and save this data set so as to not overwrite the original
+                res = ''.join(random.choices(string.ascii_uppercase +
+                             string.digits, k=7))
+                path = path + res
+                tf.data.Dataset.save(dataset, path)
+            else:
+                tf.data.Dataset.save(dataset, path)
+            
             print(f"Dataset saved at {path}")
         
         return path
 
 if __name__ == "__main__":
+    os.environ["CUDA_VISIBLE_DEVICES"]=""
     '''Construct and load dataset with tf.data.Dataset'''
     p = Params(midi_test_params_v2)
     data = CustomDataset(p, min_event_length=p.max_seq_len)
+    print(data)
+
+    #============================================================================================
+    #Testing out methods required for keras.utils.sequence
+    #__getitem__ and __len__ methods
+    #__calculate_num_batches method caluculates the number of batches in the dataset, which is needed for __len__
+    #__getitem__ returns a batch of data, given an idx
+    #============================================================================================
+    num_examples = data.calculate_num_batches('train', p.encoder_seq_len, 1)
+    # num_train_files = len(data.model_data['train'])
+    # print(f"Number of Train files: {num_train_files}")
+    # num_batches_generated = 0
+    # while len(data.train_complete_files) < num_train_files:
+    #     batch = data.__getitem__(0)
+    #     print(f"Batch shape: {batch[0]['encoder_inputs'].shape}")
+    #     print(f"Batch shape: {batch[0]['decoder_inputs'].shape}")
+    #     print(f"Batch shape: {batch[1].shape}")
+    #     num_batches_generated += 1
+    #     print(len(data.train_complete_files))
+
+    # print(f"Number of batches generated: {num_batches_generated}")
 
     #============================================================================================
     # Testing out construct_tf_dataset - very memory intensive to store all possible sequences in memory directly
     #============================================================================================
-    train_path = data.construct_tf_dataset(f'train', p.encoder_seq_len, 1,for_baseline=True,num_files=10)
-    val_path = data.construct_tf_dataset(f'validation', p.encoder_seq_len, 1,for_baseline=True,num_files=2)
-    test_path = data.construct_tf_dataset(f'test', p.encoder_seq_len, 1,for_baseline=True,num_files=2)
+    # train_path = data.construct_tf_dataset(f'train', p.encoder_seq_len, 1,for_baseline=True,num_files=10)
+    # val_path = data.construct_tf_dataset(f'validation', p.encoder_seq_len, 1,for_baseline=True,num_files=2)
+    # test_path = data.construct_tf_dataset(f'test', p.encoder_seq_len, 1,for_baseline=True,num_files=2)
 
+    # train = tf.data.Dataset.load(train_path)
+    # val = tf.data.Dataset.load(val_path)
+    # test = tf.data.Dataset.load(test_path)
 
-    train = tf.data.Dataset.load(train_path)
-    val = tf.data.Dataset.load(val_path)
-    test = tf.data.Dataset.load(test_path)
+    # print("TRAIN DATASET------------------")
+    # for inputs, targets in train.take(1):
+    #     print(f'inputs["encoder_inputs"].shape: {inputs["encoder_inputs"].shape}')
+    #     print(f'inputs["decoder_inputs"].shape: {inputs["decoder_inputs"].shape}')
+    #     print(f"targets.shape: {targets.shape}")
 
-    print("TRAIN DATASET------------------")
-    for inputs, targets in train.take(1):
-        print(f'inputs["encoder_inputs"].shape: {inputs["encoder_inputs"].shape}')
-        print(f'inputs["decoder_inputs"].shape: {inputs["decoder_inputs"].shape}')
-        print(f"targets.shape: {targets.shape}")
+    # print("VALIDATION DATASET------------------")
+    # for inputs, targets in val.take(1):
+    #     print(f'inputs["encoder_inputs"].shape: {inputs["encoder_inputs"].shape}')
+    #     print(f'inputs["decoder_inputs"].shape: {inputs["decoder_inputs"].shape}')
+    #     print(f"targets.shape: {targets.shape}")
 
-    print("VALIDATION DATASET------------------")
-    for inputs, targets in val.take(1):
-        print(f'inputs["encoder_inputs"].shape: {inputs["encoder_inputs"].shape}')
-        print(f'inputs["decoder_inputs"].shape: {inputs["decoder_inputs"].shape}')
-        print(f"targets.shape: {targets.shape}")
-
-    print("TEST DATASET------------------")
-    for inputs, targets in test.take(1):
-        print(f'inputs["encoder_inputs"].shape: {inputs["encoder_inputs"].shape}')
-        print(f'inputs["decoder_inputs"].shape: {inputs["decoder_inputs"].shape}')
-        print(f"targets.shape: {targets.shape}")
-
+    # print("TEST DATASET------------------")
+    # for inputs, targets in test.take(1):
+    #     print(f'inputs["encoder_inputs"].shape: {inputs["encoder_inputs"].shape}')
+    #     print(f'inputs["decoder_inputs"].shape: {inputs["decoder_inputs"].shape}')
+    #     print(f"targets.shape: {targets.shape}")
 
     #============================================================================================
     # Testing out slide_seq2seq - checking average number of events per midi file

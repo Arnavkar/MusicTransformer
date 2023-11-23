@@ -86,7 +86,8 @@ midi_test_params_v2 = {
     "debug":True,
     "record_data_stats":False,
     "steps_per_epoch": 500,
-    "save_freq": 10
+    "save_freq": 10,
+    "seed":236, #Random seed for reproduceable results
 }
 
 class Params:
@@ -106,7 +107,7 @@ class Params:
         return '<class Params has variables: {}>'.format(vars(self))
 
 if __name__ == "__main__":
-    params = Params(midi_test_params_v1)
+    params = Params(midi_test_params_v2)
     params.print_params()
 
 

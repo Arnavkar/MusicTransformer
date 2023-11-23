@@ -3,17 +3,14 @@ from tensorflow.keras.metrics import Mean
 from model import TransformerModel
 from time import time
 import tensorflow as tf
-from Transformer.params import midi_test_params_v2, Params
 from Transformer.utils import custom_loss, custom_accuracy
 from pickle import dump
 from datetime import datetime
 import argparse
 import json
-import os
-from tqdm.notebook import tqdm, trange
-import logging
 from Transformer.LRSchedule import LRScheduler
 from baselineModel import createBaselineTransformer
+from train_utils import setup_experiment
 
 
 if __name__ == "__main__":
@@ -29,50 +26,8 @@ if __name__ == "__main__":
     parser.add_argument('--with-baseline', type=bool, required=False)
     args = parser.parse_args()
 
-    if not args.overwrite and os.path.exists('./models/' + args.name + '/'):
-        print('Model already exists - do you want to continue? Y/N')
-        char = input().lower()
-        while char not in ['y','n']:
-            print('Invalid input - do you want to continue? Y/N')
-            char = input().lower()
-        if char == 'n':
-            exit()
-    
-    base_path = './models/' + args.name +  '/'
-    if not os.path.exists(base_path):
-        os.mkdir(base_path)
-        
-    p = Params(midi_test_params_v2)
-    #adjust params as required
-    if args.epochs:
-        p.epochs = args.epochs
-    
-    if args.max_seq_len:
-        p.encoder_seq_len = args.max_seq_len
-        p.decoder_seq_len = args.max_seq_len
-
-    if args.num_layers:
-        p.num_encoder_layers = args.num_layers
-        p.num_decoder_layers = args.num_layers
-
-    if args.batch_size:
-        p.batch_size = args.batch_size
-
-    #set up logger
-    logger = logging.getLogger('tensorflow')
-    logger.setLevel(logging.DEBUG)
-
-    #file logger
-    fh = logging.FileHandler(base_path + 'output.log', mode='w', encoding='utf-8')
-    fh.setLevel(logging.DEBUG)
-
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
-
-    # Create a MirroredStrategy to run training across 2 GPUs
-    strategy = tf.distribute.MirroredStrategy()
-    logger.info("Number of devices: {}".format(strategy.num_replicas_in_sync))
+    #Set up experiment
+    base_path, p, logger = setup_experiment(args)
 
     #set up datasets, including shuffling and batching
     train_data_path = "./data/tf_midi_train_512_1"
@@ -95,28 +50,19 @@ if __name__ == "__main__":
     optimizer = tf.keras.optimizers.Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
     #optimizer = tf.keras.optimizers.Adam(0.0001, p.beta_1, p.beta_2, p.epsilon)
 
-    try:
-        logger.info("Saving Params...")
-        with open(base_path+'params.json', 'w') as file:
-            param_dict = p.get_params()
-            param_dict['name'] = args.name
-            param_dict['training_date'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-            json.dump(param_dict, file, indent=4)
-        logger.info("Params Saved!")
-    except Exception as e:
-        logger.error(e)
+    
 
     # with strategy.scope():
     if args.with_baseline:
         print("Creating baseline transformer...")
         model = createBaselineTransformer(p)
         model.compile(
-            optimizer = optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"]
+            optimizer = optimizer, loss=custom_loss, metrics=["accuracy"]
         )
     else:
         model = TransformerModel(p)
         model.compile(optimizer = optimizer,
-                    loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+                    loss_fn = custom_loss,
                     accuracy_fn = custom_accuracy,
                     logger = logger)
 
@@ -128,15 +74,13 @@ if __name__ == "__main__":
         save_weights_only = True,
     )
     
-    early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_val_loss', patience=3, restore_best_weights=True)
+    early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
 
     tensorboard = tf.keras.callbacks.TensorBoard(
         log_dir=base_path+'logs',
-        write_graph=True,
-        write_images=False,
-        write_steps_per_second=False,
         update_freq='epoch',
     )
+
     #Train model and save history
     try:
         logger.info("Training model...")
@@ -151,5 +95,21 @@ if __name__ == "__main__":
         with open(base_path+'history.json', 'w') as file:
             json.dump(history.history,file)
         logger.info("History Saved!") 
+    except Exception as e:
+        logger.error(e)
+
+    #Test model against test data set
+    #NOTE : such seq2seq models still need to be evaluated by manually examining output
+    try:
+        logger.info("Testing model...")
+        test_data_path = "./data/tf_midi_test_512_1"
+        if args.with_baseline:
+            test_data=tf.data.Dataset.load(test_data_path+"_baseline")
+        else:
+            test_data = tf.data.Dataset.load(test_data_path)
+        test_data = test_data.shuffle(len(test_data))
+        test_data = test_data.batch(p.batch_size, drop_remainder=True)
+        test_loss, test_acc = model.evaluate(test_data)
+        logger.info("Test Loss: %.4f, Test Accuracy: %.4f" % (test_loss, test_acc))
     except Exception as e:
         logger.error(e)
