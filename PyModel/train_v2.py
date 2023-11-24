@@ -22,11 +22,13 @@ if __name__ == "__main__":
     parser.add_argument('-o','--overwrite', type=bool, required=False)
     parser.add_argument('-e','--epochs', type=int, required=False)
     parser.add_argument('-b','--batch_size', type=int, required=False)
-    parser.add_argument('-s','--max_seq_len',type=int, required=False)
+    parser.add_argument('-es','--encoder_seq_len',type=int, required=False)
+    parser.add_argument('-ds','--decoder_seq_len',type=int, required=False)
     parser.add_argument('-l','--num_layers', type=int, required=False)
     parser.add_argument('--with-baseline', type=bool, required=False)
     args = parser.parse_args()
 
+    print(args)
     #Set up experiment
     base_path, p, logger = setup_experiment(args)
     p.encoder_seq_len = 12
@@ -58,9 +60,7 @@ if __name__ == "__main__":
         model.compile(optimizer = optimizer, loss=custom_loss, metrics=[custom_accuracy])
     else:
         model = TransformerModel(p)
-        model.compile(optimizer = optimizer,
-                    loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-                    metrics = ["accuracy"])
+        model.compile(optimizer = optimizer, loss_fn = custom_loss, accuracy_fn=custom_accuracy)
 
     start_time = time()
     model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
@@ -75,6 +75,7 @@ if __name__ == "__main__":
     tensorboard = tf.keras.callbacks.TensorBoard(
         log_dir=base_path+'logs',
         update_freq='epoch',
+        histogram_freq = 1,
     )
 
 

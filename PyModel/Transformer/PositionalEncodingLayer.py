@@ -2,6 +2,7 @@ from tensorflow.keras.layers import Layer, Embedding
 import numpy as np
 import tensorflow as tf
 from .utils import check_shape
+from matplotlib import pyplot as plt
 
 # #Positional encoding as specified in the paper "Attention is all you need"
 # #Embedding layer is used to convert integer values into vectors
@@ -71,22 +72,19 @@ from .utils import check_shape
 class PositionEmbeddingFixedWeights(Layer):
     def __init__(self, seq_len, vocab_size, output_dim, **kwargs):
         super(PositionEmbeddingFixedWeights, self).__init__(**kwargs)
+        
         # Initialize the positional encoding matrices
-        self.input_embedding_matrix = self.get_positional_encoding(vocab_size, output_dim)
         self.position_embedding_matrix = self.get_positional_encoding(seq_len, output_dim)
 
         # Non-trainable embeddings
         self.input_embedding_layer = Embedding(
             input_dim=vocab_size,
             output_dim=output_dim,
-            weights=[self.input_embedding_matrix],
-            trainable=False
         )
+
         self.position_embedding_layer = Embedding(
             input_dim=seq_len,
             output_dim=output_dim,
-            weights=[self.position_embedding_matrix],
-            trainable=False
         )
     
     def get_config(self):
@@ -108,6 +106,7 @@ class PositionEmbeddingFixedWeights(Layer):
 #     # n user defined scalar, 10000 in the paper
 #     # i = dimension index, where i < d/2
 #     #from https://machinelearningmastery.com/a-gentle-introduction-to-positional-encoding-in-transformer-models-part-1/
+    @classmethod
     def get_positional_encoding(self, size, output_dim, n=10000):
         # Initialize the positional encoding matrix
         P = np.zeros((size, output_dim))
@@ -129,3 +128,12 @@ class PositionEmbeddingFixedWeights(Layer):
         
         # Sum the token embeddings and position embeddings
         return embedded_input + embedded_positions
+    
+if __name__ == "__main__":
+    #Plot the positional encoding
+    pos_encoding = PositionEmbeddingFixedWeights.get_positional_encoding(2048, 512)
+    plt.pcolormesh(pos_encoding.T, cmap='RdBu')
+    plt.ylabel('Depth')
+    plt.xlabel('Position')
+    plt.colorbar()
+    plt.show()

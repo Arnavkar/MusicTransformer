@@ -29,9 +29,11 @@ def setup_params(args,base_params=midi_test_params_v2):
     if args.epochs:
         p.epochs = args.epochs
     
-    if args.max_seq_len:
-        p.encoder_seq_len = args.max_seq_len
-        p.decoder_seq_len = args.max_seq_len
+    if args.encoder_seq_len:
+        p.encoder_seq_len = args.encoder_seq_len
+    
+    if args.decoder_seq_len:
+        p.decoder_seq_len = args.decoder_seq_len
 
     if args.num_layers:
         p.num_encoder_layers = args.num_layers

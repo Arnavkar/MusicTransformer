@@ -44,22 +44,18 @@ class TransformerEncoder(tf.keras.layers.Layer):
 class PositionalEmbedding(layers.Layer):
     def __init__(self, sequence_length, vocab_size, embed_dim, **kwargs):
         super().__init__(**kwargs)
-        self.token_embeddings = layers.Embedding(
-            input_dim=vocab_size, output_dim=embed_dim
-        )
-        self.position_embeddings = layers.Embedding(
-            input_dim=sequence_length, output_dim=embed_dim
+        self.embedding_layer = keras_nlp.layers.TokenAndPositionEmbedding(
+            vocabulary_size=vocab_size,
+            sequence_length=sequence_length,
+            embedding_dim=embed_dim,
+            mask_zero=True,
         )
         self.sequence_length = sequence_length
         self.vocab_size = vocab_size
         self.embed_dim = embed_dim
 
     def call(self, inputs):
-        length = tf.shape(inputs)[-1]
-        positions = tf.range(start=0, limit=length, delta=1)
-        embedded_tokens = self.token_embeddings(inputs)
-        embedded_positions = self.position_embeddings(positions)
-        return embedded_tokens + embedded_positions
+        return self.embedding_layer(inputs)
 
     def compute_mask(self, inputs, mask=None):
         return tf.math.not_equal(inputs, 0)
@@ -147,4 +143,5 @@ def createBaselineTransformer(p:Params):
     transformer = keras.Model(
         inputs = (encoder_inputs, decoder_inputs), outputs = decoder_outputs, name="transformer"
     )
+    
     return transformer

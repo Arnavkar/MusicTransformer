@@ -63,6 +63,12 @@ class TransformerModel(Model):
         loss = self.compute_loss(decoder_output, prediction)
         self.val_loss.update_state(loss)
         return {"val_loss": self.val_loss.result()}
+    
+    def compile(self, optimizer,loss_fn,accuracy_fn):
+        super().compile(optimizer = optimizer)
+        self.optimizer = optimizer
+        self.compute_loss = loss_fn
+        self.compute_accuracy = accuracy_fn
 
     @property
     def metrics(self):

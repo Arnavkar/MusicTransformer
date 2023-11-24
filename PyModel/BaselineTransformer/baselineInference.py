@@ -91,45 +91,32 @@ if __name__ == '__main__':
 
         print(f"Latest Checkpoint path: {latest_checkpoint}")
         #Add expect_partial for lazy creation of weights
-        model.load_weights('./models/testmodel_baseline_majorscale/checkpoints/checkpoints_21').expect_partial()
+        model.load_weights('./models/testmodel_baseline_majorscale/checkpoints/checkpoints_23').expect_partial()
         print("Checkpoint restored!")
     
     improvisor = Improvisor(model,p)
 
-    #TEST WITH CUSTOM TF DATASET
-    #test_path = "./data/tf_midi_train_512_1_baseline"
-    # test_path = "./data/tf_midi_data_validation"
-    # test = tf.data.Dataset.load(test_path)
-
-    _, _,  data = test.mockTfDataset(test.MAJOR_SCALE, 12)
-    data = data.shuffle(len(data))
-    data = data.batch(p.batch_size, drop_remainder=True)
-    data = data.map(test.format_dataset)
+    #=====================================================================
+    #Test with very simple sequences of midi notes - not yet midi encoded
+    #=====================================================================
+    _ , _ ,  test_data = test.mockTfDataset(test.MAJOR_SCALE, 12)
+    test_data = test_data.shuffle(len(test_data))
+    test_data = test_data.batch(p.batch_size, drop_remainder=True)
+    test_data = test_data.map(test.format_dataset)
     
-
     test_sequences = output_sequences = actual_sequences = None
 
-    for inputs, targets in data.take(1):
+    for inputs, targets in test_data.take(1):
         encoder_inputs = inputs["encoder_inputs"]
         decoder_inputs = inputs["decoder_inputs"]
         decoder_outputs = targets
-
-        # test_sequences = inputs
-        # actual_sequences = targets
-
-    # test_sequence = list(test_sequences.numpy()[0])
-    # actual_sequence = list(actual_sequences.numpy()[0])
 
     encoder_inputs = encoder_inputs.numpy()
     decoder_inputs = decoder_inputs.numpy()
     decoder_outputs = decoder_outputs.numpy()
 
-    # actual_sequence = list(actual_sequences.numpy())
-
     for i in range(len(encoder_inputs)):
         print('encoderinput :{},\t decoder input:{},\t decoder output:{} \t, improvisor output:{} '.format(encoder_inputs[i],decoder_inputs[i],decoder_outputs[i],improvisor([encoder_inputs[i]])))
-
-
 
     #TEST WITH seq2seq batch method from custom dataset
     # _ , test_batchX,test_batchY = dataset.seq2seq_batch(1, p.encoder_seq_len, 'test', 1)
