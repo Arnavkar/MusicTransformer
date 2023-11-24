@@ -25,13 +25,12 @@ def rolling_window(sequence_batch, seq_len):
     return ls
 
 def mockTfDataset(scale, seq_len):
-    _, all_scales  = constructScales(scale)
+    single_scale, all_scales  = constructScales(scale)
     all_sequences = rolling_window(all_scales, seq_len*2)
     x, y = [], []
     for seq in all_sequences:
         x.append(seq[:seq_len])
         y.append([1] + seq[seq_len:] + [2])
-    print(x[0:4],y[0:4])
     dataset = tf.data.Dataset.from_tensor_slices((x,y))
     return dataset
 
@@ -46,6 +45,13 @@ def format_dataset(x, y):
 
 if __name__ == '__main__':
     single_scale, all_scales = constructScales(MAJOR_SCALE)
-    dataset = mockTfDataset(MAJOR_SCALE, 4)
-    dataset = dataset.batch(12)
+    dataset = mockTfDataset(MAJOR_SCALE, 12)
+    dataset = dataset.batch(32, drop_remainder=True)
     dataset = dataset.map(format_dataset)
+
+    for inputs, targets in dataset.take(1):
+        test_sequences = inputs["encoder_inputs"]
+        actual_sequences = targets
+        for i in range(10):
+            print('test sequence:{}, actual sequence:{}'.format(test_sequences[i],actual_sequences[i]))
+

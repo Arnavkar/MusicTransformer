@@ -1,4 +1,4 @@
-from tensorflow.keras.layers import Layer, LayerNormalization
+from tensorflow.keras.layers import Layer, LayerNormalization, Add
 import tensorflow as tf
 from .utils import check_shape
 import json
@@ -10,10 +10,11 @@ class AddNormalization(Layer):
     def __init__(self, **kwargs):
         super(AddNormalization, self).__init__(**kwargs)
         self.layer_norm = LayerNormalization()  # Layer normalization layer
+        self.add = Add()  # Add layer
     
     def call(self, x, sublayer_x):
-        add = x + sublayer_x     
-        return self.layer_norm(x)
+        output = self.add([x + sublayer_x])     
+        return self.layer_norm(output)
     
     #Config to serialize Custom Layer
     #Explicit Desrialization not required because we are are not passing layers or models to __init__()

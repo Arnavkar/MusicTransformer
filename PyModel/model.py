@@ -19,16 +19,6 @@ class TransformerModel(Model):
         self.train_loss = tf.keras.metrics.Mean(name="train_loss")
         self.train_accuracy = tf.keras.metrics.Mean(name="train_accuracy")
         self.val_loss = tf.keras.metrics.Mean(name='val_loss')
-        self.logger = None
-
-    def compile(self, optimizer,loss_fn,accuracy_fn,logger=None):
-        super().compile()
-        self.optimizer = optimizer
-        self.compute_loss = loss_fn
-        self.compute_accuracy = accuracy_fn
-        if logger:
-            self.logger = logger
-
     
     def call(self, input_data, training):
         encoder_input, decoder_input = input_data
@@ -40,7 +30,7 @@ class TransformerModel(Model):
         decoder_output = self.decoder(decoder_input, encoder_output, lookahead, padding, training)
         return self.dense(decoder_output)
     
-    @tf.function
+    #@tf.function
     def train_step(self, data):
         train_batchX, train_batchY = data
         encoder_input = train_batchX
@@ -60,11 +50,9 @@ class TransformerModel(Model):
         self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
         self.train_loss.update_state(loss)
         self.train_accuracy.update_state(accuracy)
-        if self.logger:
-            self.logger.info(f"Training loss: {float(self.train_loss.result())}, Training accuracy: {float(self.train_accuracy.result())}")
         return {"train_loss": self.train_loss.result(), "train_accuracy": self.train_accuracy.result()}
     
-    @tf.function
+    #@tf.function
     def test_step(self,val_data):
         val_batchX, val_batchY = val_data
         encoder_input = val_batchX
@@ -74,8 +62,6 @@ class TransformerModel(Model):
 
         loss = self.compute_loss(decoder_output, prediction)
         self.val_loss.update_state(loss)
-        if self.logger:
-            self.logger.info(f"Validation loss: {float(self.val_loss.result())}")
         return {"val_loss": self.val_loss.result()}
 
     @property
@@ -105,10 +91,6 @@ class DecoderModel(Model):
 
     def call(self, input_data, training):
         pass
-        
-    
-
-
 
 if __name__ == "__main__":
     p = Params(baseline_test_params)

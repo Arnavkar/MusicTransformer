@@ -12,7 +12,8 @@ import os
 from Transformer.utils import custom_loss
 from datetime import datetime
 from Transformer.LRSchedule import LRScheduler
-from baselineModel import createBaselineTransformer
+from .baselineModel import createBaselineTransformer
+import testData as test
 
 
 class Improvisor(tf.Module):
@@ -22,8 +23,6 @@ class Improvisor(tf.Module):
         self.params = p
     
     def __call__(self, input_sequence):
-        input_sequence[0] = [self.params.token_sos] + input_sequence[0] + [self.params.token_eos]
-
         encoder_input = pad_sequences(input_sequence, maxlen=self.params.encoder_seq_len, padding='post')
         encoder_input = tf.convert_to_tensor(encoder_input, dtype=tf.int64)
 
@@ -45,10 +44,10 @@ class Improvisor(tf.Module):
             decoder_output = decoder_output.write(i + 1, predicted_id)
             # Break if an <EOS> token is predicted
             if predicted_id == self.params.token_eos or i == self.params.decoder_seq_len-1:
-                print("hit eos")
+                # print("hit eos")
                 break
             i+=1
-            print(i,predicted_id)
+            # print(i,predicted_id)
 
         output = tf.transpose(decoder_output.stack())[0]
         decoder_output = decoder_output.mark_used()
@@ -66,11 +65,14 @@ if __name__ == '__main__':
 
     model_params = json.load(open('./models/' + args.model_name + '/params.json', 'rb'))
     p = Params(model_params)
-    dataset = CustomDataset(p)
-    model = TransformerModel(p)
+    # model = TransformerModel(p)
     
-    #model = createBaselineTransformer(p)
-    optimizer = tf.keras.optimizers.Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
+    model = createBaselineTransformer(p)
+    optimizer = tf.keras.optimizers.legacy.Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
+
+    model.compile(
+        optimizer = optimizer, loss=custom_loss, metrics=["accuracy"]
+    )
 
     if args.checkpoint_type == 'pb':
         model = tf.keras.models.load_model('./models/' + args.model_name + '/checkpoints')
@@ -96,56 +98,65 @@ if __name__ == '__main__':
 
     #TEST WITH CUSTOM TF DATASET
     #test_path = "./data/tf_midi_train_512_1_baseline"
-    test_path = "./data/tf_midi_data_validation"
-    test = tf.data.Dataset.load(test_path)
-    # model.compile(
-    #     optimizer = optimizer, loss="sparse_categorical_crossentropy"
-    # )
-    # model.evaluate(test, verbose=1)
+    # test_path = "./data/tf_midi_data_validation"
+    # test = tf.data.Dataset.load(test_path)
+
+    data = test.mockTfDataset(test.MAJOR_SCALE, 12)
+    # data = data.shuffle(len(data))
+    data = data.batch(p.batch_size, drop_remainder=True)
+    data = data.map(test.format_dataset)
+    
 
     test_sequences = output_sequences = actual_sequences = None
 
-    for inputs, targets in test.take(1):
-        # test_sequences = inputs["encoder_inputs"]
-        # actual_sequences = targets
-        # print(f'inputs["encoder_inputs"].shape: {inputs["encoder_inputs"].shape}')
-        # print(f"targets.shape: {targets.shape}")
+    for inputs, targets in data.take(1):
+        encoder_inputs = inputs["encoder_inputs"]
+        decoder_inputs = inputs["decoder_inputs"]
+        decoder_outputs = targets
 
-        test_sequences = inputs
-        actual_sequences = targets
+        # test_sequences = inputs
+        # actual_sequences = targets
 
     # test_sequence = list(test_sequences.numpy()[0])
     # actual_sequence = list(actual_sequences.numpy()[0])
 
-    test_sequence = list(test_sequences.numpy())
-    actual_sequence = list(actual_sequences.numpy())
+    encoder_inputs = encoder_inputs.numpy()
+    decoder_inputs = decoder_inputs.numpy()
+    decoder_outputs = decoder_outputs.numpy()
+
+    # actual_sequence = list(actual_sequences.numpy())
+
+    for i in range(len(encoder_inputs)):
+        print('encoderinput :{},\t decoder input:{},\t decoder output:{} \t, improvisor output:{} '.format(encoder_inputs[i],decoder_inputs[i],decoder_outputs[i],improvisor([encoder_inputs[i]])))
+
+
 
     #TEST WITH seq2seq batch method from custom dataset
     # _ , test_batchX,test_batchY = dataset.seq2seq_batch(1, p.encoder_seq_len, 'test', 1)
     # #extract a test sequence of the first 20 elements
     # test_sequence = list(test_batchX[0][0:300])
 
-    if not os.path.exists('./samples'):
-        os.mkdir('./samples')
+    # if not os.path.exists('./samples'):
+    #     os.mkdir('./samples')
    
-    try:
-        time_recorded = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
-        sample_path = './samples' + f'/{args.model_name}_{time_recorded}/'
+    # try:
+    #     time_recorded = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
+    #     sample_path = './samples' + f'/{args.model_name}_{time_recorded}/'
         
-        os.mkdir(sample_path)
+    #     os.mkdir(sample_path)
 
-        decode_midi(test_sequence,file_path=sample_path + 'input.midi')
-        print('input.mid written')
+    #     decode_midi(test_sequence,file_path=sample_path + 'input.midi')
+    #     print('input.mid written')
 
-        output_sequence = list(improvisor([test_sequence]))
-        print(output_sequence)
-        decode_midi(output_sequence,file_path=sample_path + 'output.midi')
-        print('output.mid written')
+    #     output_sequence = list(improvisor([test_sequence]))
+    #     print(output_sequence)
+    #     decode_midi(output_sequence,file_path=sample_path + 'output.midi')
+    #     print('output.mid written')
 
-        decode_midi(actual_sequence,file_path=sample_path + 'actual.midi')
-        print('actual.mid written')
+    #     decode_midi(actual_sequence,file_path=sample_path + 'actual.midi')
+    #     print('actual.mid written')
 
-    except Exception as e:
-        os.rmdir(sample_path)
-        print(e)
-    print("Inference complete")
+    # except Exception as e:
+    #     os.rmdir(sample_path)
+    #     print(e)
+    # print("Inference complete")
