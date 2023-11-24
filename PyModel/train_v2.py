@@ -29,18 +29,24 @@ if __name__ == "__main__":
 
     #Set up experiment
     base_path, p, logger = setup_experiment(args)
+    p.encoder_seq_len = 12
+    p.decoder_seq_len = 14
 
     #Set up Dataset
     #================
     # Test data - simple scales etc.
     #================
-    data = test.mockTfDataset(test.MAJOR_SCALE, 12)
-    data = data.shuffle(len(data))
-    data = data.batch(p.batch_size, drop_remainder=True)
-    data = data.map(test.format_dataset)
-    p.encoder_seq_len = 12
-    p.decoder_seq_len = 14
+    train,val,_ = test.mockTfDataset(test.MAJOR_SCALE, 12)
 
+    train = train.shuffle(len(train))
+    train = train.batch(p.batch_size, drop_remainder=True)
+    train = train.map(test.format_dataset)
+
+    val = val.shuffle(len(val))
+    val = val.batch(p.batch_size, drop_remainder=True)
+    val = val.map(test.format_dataset)
+
+    
     #Instantiate and Adam optimizer
     # optimizer = tf.keras.optimizers.Adam(, p.beta_1, p.beta_2, p.epsilon)
     optimizer = tf.keras.optimizers.legacy.Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
@@ -64,7 +70,7 @@ if __name__ == "__main__":
         save_weights_only = True,
     )
     
-    early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
+    early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
 
     tensorboard = tf.keras.callbacks.TensorBoard(
         log_dir=base_path+'logs',
@@ -77,10 +83,10 @@ if __name__ == "__main__":
     try:
         logger.info("Training model...")
         history = model.fit(
-            data, 
+            train, 
             epochs = p.epochs,
-            # validation_data = val_data,
-            callbacks = [model_checkpoint, tensorboard],
+            validation_data = val,
+            callbacks = [model_checkpoint, early_stopping, tensorboard],
         )
         logger.info("Training Complete! Total time taken: %.2fs" % (time() - start_time))  
         logger.info("Saving History...")

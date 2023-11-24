@@ -1,4 +1,5 @@
 import tensorflow as tf
+import random
 
 MAJOR_SCALE = [24, 26, 28, 29, 31, 33, 35]
 MINOR_SCALE = [24, 26, 27, 29, 31, 32, 34]
@@ -25,14 +26,25 @@ def rolling_window(sequence_batch, seq_len):
     return ls
 
 def mockTfDataset(scale, seq_len):
+    random.seed(42)
     single_scale, all_scales  = constructScales(scale)
     all_sequences = rolling_window(all_scales, seq_len*2)
+    random.shuffle(all_sequences)
     x, y = [], []
     for seq in all_sequences:
         x.append(seq[:seq_len])
         y.append([1] + seq[seq_len:] + [2])
-    dataset = tf.data.Dataset.from_tensor_slices((x,y))
-    return dataset
+
+    split_1 = int(0.8*len(x))
+    split_2 = int(0.9*len(x))
+
+    train_x , val_x, test_x = x[0:split_1], x[split_1:split_2], x[split_2:]
+    train_y , val_y, test_y = y[0:split_1], y[split_1:split_2], y[split_2:]
+    
+    train = tf.data.Dataset.from_tensor_slices((train_x, train_y))
+    val = tf.data.Dataset.from_tensor_slices((val_x, val_y))
+    test = tf.data.Dataset.from_tensor_slices((test_x, test_y))
+    return train,val,test
 
 def format_dataset(x, y):
     return (
@@ -45,13 +57,37 @@ def format_dataset(x, y):
 
 if __name__ == '__main__':
     single_scale, all_scales = constructScales(MAJOR_SCALE)
-    dataset = mockTfDataset(MAJOR_SCALE, 12)
-    dataset = dataset.batch(32, drop_remainder=True)
-    dataset = dataset.map(format_dataset)
+    train,test,val = mockTfDataset(MAJOR_SCALE, 12)
+    # train = train.shuffle(len(train))
+    train = train.batch(16, drop_remainder=True)
+    train = train.map(format_dataset)
 
-    for inputs, targets in dataset.take(1):
+    # val = val.shuffle(len(test))
+    val = val.batch(16, drop_remainder=True)
+    val = val.map(format_dataset)
+
+    # test = test.shuffle(len(test))
+    test = test.batch(16, drop_remainder=True)
+    test = test.map(format_dataset)
+
+    print("Train dataset==============")
+    for inputs, targets in train.take(1):
         test_sequences = inputs["encoder_inputs"]
         actual_sequences = targets
-        for i in range(10):
+        for i in range(3):
+            print('test sequence:{}, actual sequence:{}'.format(test_sequences[i],actual_sequences[i]))
+
+    print("Val dataset==============")
+    for inputs, targets in val.take(1):
+        test_sequences = inputs["encoder_inputs"]
+        actual_sequences = targets
+        for i in range(3):
+            print('test sequence:{}, actual sequence:{}'.format(test_sequences[i],actual_sequences[i]))
+
+    print("Test dataset==============")
+    for inputs, targets in test.take(1):
+        test_sequences = inputs["encoder_inputs"]
+        actual_sequences = targets
+        for i in range(3):
             print('test sequence:{}, actual sequence:{}'.format(test_sequences[i],actual_sequences[i]))
 

@@ -91,7 +91,7 @@ if __name__ == '__main__':
 
         print(f"Latest Checkpoint path: {latest_checkpoint}")
         #Add expect_partial for lazy creation of weights
-        model.load_weights(latest_checkpoint).expect_partial()
+        model.load_weights('./models/testmodel_baseline_majorscale/checkpoints/checkpoints_21').expect_partial()
         print("Checkpoint restored!")
     
     improvisor = Improvisor(model,p)
@@ -101,8 +101,8 @@ if __name__ == '__main__':
     # test_path = "./data/tf_midi_data_validation"
     # test = tf.data.Dataset.load(test_path)
 
-    data = test.mockTfDataset(test.MAJOR_SCALE, 12)
-    # data = data.shuffle(len(data))
+    _, _,  data = test.mockTfDataset(test.MAJOR_SCALE, 12)
+    data = data.shuffle(len(data))
     data = data.batch(p.batch_size, drop_remainder=True)
     data = data.map(test.format_dataset)
     
