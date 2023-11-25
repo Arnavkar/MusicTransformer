@@ -19,37 +19,22 @@ import time
 
 class FileData():
     def __init__(self,file_path):
-        self.file_path = file_path
+        self.path = file_path
         self.current_note_index = 0
 
-class CustomDataset():
-    def __init__(self,p:Params, path="./data/processed",min_duration=None,min_event_length=None) -> None:
+class CustomDataset(tf.keras.utils.Sequence):
+    def __init__(self,p:Params,mode, path="./data/processed", min_duration=None,min_event_length=None) -> None:
         self.maestroJSON = self.get_maestroJSON()
         self.fileDict = self.get_encoded_files(path,min_duration,min_event_length)
-        self.model_data = {
-            "train": [],
-            "validation": [],
-            "test": [],
-        }
-        self.train_complete_files = []
+        self.mode = mode
+        self.data = []
+        self.complete_files = []
         self.params = p
 
         # self.partition_by_filecount()
-        self.partition_by_maestro_split()
+        self.retrieve_files_by_maestro_split()
 
-        #Just to test with a few files
-        self.model_data['train'] = self.model_data['train'][:10]
-        
-        self.convert_all_to_fileData()
         random.seed(self.params.seed)
-
-        # if self.params.record_data_stats:
-        #     self.dataset_stats = {
-        #         "train":{},
-        #         "validation":{},
-        #         "test":{}
-        #     }
-        #     self.set_up_stats()
     
     def get_maestroJSON(self, path="./data/raw/maestro-v3.0.0/maestro-v3.0.0.json") -> list:
         with open(path) as f:
@@ -57,7 +42,7 @@ class CustomDataset():
         return data
 
     def __repr__(self):
-        return "<class CustomDataset has {} files, {} for training, {} for validation, {} for testing>".format(str(len(self.fileDict)), str(len(self.model_data["train"])), str(len(self.model_data["validation"])), str(len(self.model_data["test"])))
+        return "<class CustomDataset_{} has {} files>".format(self.mode, str(len(self.data)))
     
     def get_encoded_files(self,path,min_duration,min_event_length) -> list:
         if not os.path.exists(path):
@@ -99,74 +84,45 @@ class CustomDataset():
                 i+=1
             print(f"Number of midi files remaining after removing files less than {min_event_length} events: {len(midi_filenames_from_json)}")
 
-
         return midi_filenames_from_json
 
-    def partition_by_filecount(self):
-        total_num_files = len(self.fileDict)
+    # def partition_by_filecount(self):
+    #     total_num_files = len(self.fileDict)
 
-        #gets values as paths, shuffle the file paths
-        paths = list(self.fileDict.values())
-        random.shuffle(paths)
+    #     #gets values as paths, shuffle the file paths
+    #     paths = list(self.fileDict.values())
+    #     random.shuffle(paths)
 
-        #Split paths via list splicing into train, validation and test sets
-        train = paths[:int(total_num_files * 0.8)]
+    #     #Split paths via list splicing into train, validation and test sets
+    #     train = paths[:int(total_num_files * 0.8)]
         
-        validation = paths[int(total_num_files * 0.8):int(total_num_files * 0.9)]
+    #     validation = paths[int(total_num_files * 0.8):int(total_num_files * 0.9)]
         
-        test = paths[int(total_num_files * 0.9):]
+    #     test = paths[int(total_num_files * 0.9):]
 
-        assert len(train) + len(validation) + len(test) == total_num_files, \
-            f"Number of files in train, validation and test sets does not match total number of files: {len(train)} + {len(validation)} + {len(test)} != {total_num_files}"
+    #     assert len(train) + len(validation) + len(test) == total_num_files, \
+    #         f"Number of files in train, validation and test sets does not match total number of files: {len(train)} + {len(validation)} + {len(test)} != {total_num_files}"
         
-        self.model_data["train"] = train
-        self.model_data["validation"] = validation
-        self.model_data["test"] = test
+    #     self.model_data["train"] = train
+    #     self.model_data["validation"] = validation
+    #     self.model_data["test"] = test
     
-    def partition_by_maestro_split(self):
-        train = []
-        validation = []
-        test = []
+    def retrieve_files_by_maestro_split(self):
         for i in self.fileDict.keys():
-            if self.maestroJSON['split'][f'{i}'] == 'train':
-                train.append(self.fileDict[i])
-
-            elif self.maestroJSON['split'][f'{i}'] == 'validation':
-                validation.append(self.fileDict[i])
-
-            elif self.maestroJSON['split'][f'{i}'] == 'test':
-                test.append(self.fileDict[i])
-            else:
-                print(f"ERROR: {self.maestroJSON['split'][f'{i}']} is not a valid split")
-                
-        self.model_data["train"] = train
-        self.model_data["validation"] = validation
-        self.model_data["test"] = test
-
-    def convert_all_to_fileData(self):
-        for mode in self.model_data.keys():
-            for i in range(len(self.model_data[mode])):
-                self.model_data[mode][i] = FileData(self.model_data[mode][i])
+            if self.maestroJSON['split'][f'{i}'] == self.mode:
+                self.data.append(FileData(self.fileDict[i]))
             
-    #NOTE: Taken from Github implementation of Transformer - currently using construct tf_dataset_method
-    def get_batch(self, batch_size, length, mode):
-        #select files based on training mode
-        files = self.model_data[mode]
-
+    def get_batch(self, batch_size, length):
         selected = []
 
         #select k files from the list of files - allows us to grab a batch from the same file multiple times
         for _ in range(batch_size):
-            selected.append(random.choice(files))
+            selected.append(random.choice(self.data))
 
         #from each file, extract a random sequence of length
-        data = [self.extract_sequence_v2(file, length, mode) for file in selected]
-        
-        # for array in data:
-        #     assert len(array) == length-1, f"Length of array {len(array)} is not equal to length {length-1}"
+        data = [self.extract_sequence_v2(file, length) for file in selected]
         return np.array(data,int)
     
-    #NOTE: Taken from Github implementation of Transformer - no longer using this method
     # def extract_sequence(self, fname, length, mode):
     #     #Grab a random sample of length len from a while
     #     with open(fname, 'rb') as f:
@@ -195,9 +151,9 @@ class CustomDataset():
     #     return data
     
     #v2 of extract_sequence, grabs a sequence of size 'length' from file, starting at the start index 0. Then, shifts the sequence down by 1
-    def extract_sequence_v2(self, file_data, length, mode):
+    def extract_sequence_v2(self, file_data, length):
         #Grab a random sample of length len from a while
-        with open(file_data.file_path, 'rb') as f:
+        with open(file_data.path, 'rb') as f:
             data = pickle.load(f)
 
         #pick up from the last recorded start_index
@@ -216,53 +172,51 @@ class CustomDataset():
             data = data[start_index:]
             while len(data) < length:
                 data = np.append(data, self.params.pad_token)
-            self.move_to_complete_list(file_data,mode)
-
+            self.move_to_complete_list(file_data)
         return data
         
-    #Move a fileData object from the model_data[mode] list to the train_complete_files list
-    def move_to_complete_list(self,file_data,mode):
-        if mode == 'train':
-            self.train_complete_files.append(file_data)
-            self.model_data[mode].remove(file_data)
-            file_data.current_note_index = 0
-        else:
-            print(f"ERROR: File from {mode} set should not be here")
+    #Move a fileData object from the model_data[mode] list to the complete_files list
+    def move_to_complete_list(self,file_data):
+        self.complete_files.append(file_data)
+        self.data.remove(file_data)
 
+    #if training decoder, num_tokens_to_predict is 0, we teacher force the entire sequence
+    #if training regular transformer, length and num_tokens_to_predict are the same
 
-    #NOTE: Taken from Github implementation of Transformer - Best for training decoder directly
-            #if training decoder, num_tokens_to_predict is 0, we teacher force the entire sequence
-            #else, we take a sequence of length to pass to the encoder, and pass the sequence shifted by num_tokens_to_predict to the decoder
-    def seq2seq_batch(self, batch_size, length, mode='train', num_tokens_to_predict = 0):
-
-        data = self.get_batch(batch_size, length+num_tokens_to_predict, mode)
+    #first half is passed to encoder as context
+    #second half passed to decoder for teacher forcing
+    def seq2seq_batch(self, batch_size, length, num_tokens_to_predict=None):
+        if num_tokens_to_predict is None:
+            num_tokens_to_predict = length
+        data = self.get_batch(batch_size, length+num_tokens_to_predict)
         #Accounting for the eos token added in extract_sequence
         x = data[:, 0:length]
         y = data[:, length:length + num_tokens_to_predict]
         
+        #attach start and end tokens to each y sequence
         y = np.array([[self.params.token_sos] + list(seq) + [self.params.token_eos] for seq in y])
         return x, y
 
-    def calculate_num_batches(self, mode, seq_len, stride):
+    def calculate_num_batches(self, seq_len, stride):
         num_examples = 0
-        for file in self.model_data[mode]:
-            with open(file.file_path, 'rb') as f:
+        for file in self.data:
+            with open(file.path, 'rb') as f:
                 data = pickle.load(f)
                 #seq_len multiplied by two for the encoder and decoder seq respectively
             num_examples += (len(data) - seq_len*2) // stride
         num_batches = int(num_examples / self.params.batch_size)
         remaining_examples = num_examples % self.params.batch_size
         
-        print(f"Number of batches: {num_batches}, Number of remaining examples: {remaining_examples}")
+        # print(f"Number of batches: {num_batches}, Number of remaining examples: {remaining_examples}")
         assert num_batches*self.params.batch_size + remaining_examples == num_examples
 
         return num_batches
     
     def __len__(self):
-        return self.calculate_num_batches('train', self.params.encoder_seq_len, 1) + 1
+        return self.calculate_num_batches(self.params.encoder_seq_len, 1)
     
     def __getitem__(self, idx):
-        x,y = self.seq2seq_batch(self.params.batch_size, self.params.encoder_seq_len, "train", self.params.encoder_seq_len)
+        x,y = self.seq2seq_batch(self.params.batch_size, self.params.encoder_seq_len)
         return (
             {
                 "encoder_inputs": x,
@@ -271,11 +225,12 @@ class CustomDataset():
             y[:, 1:],
         )
     
+    #Reset all indices
     def on_epoch_end(self):
         print("Epoch ended, resetting fileData objects")
-        self.model_data['train'] += self.train_complete_files
-        self.train_complete_files = []
-        for file in self.model_data['train']:
+        self.data += self.complete_files
+        self.complete_files = []
+        for file in self.data:
             file.current_note_index = 0
 
     #Construct a tf dataset directly from the midi files - loads everything into memory                
@@ -356,7 +311,7 @@ if __name__ == "__main__":
     '''Construct and load dataset with tf.data.Dataset'''
     p = Params(midi_test_params_v2)
 
-    data = CustomDataset(p, min_event_length=p.max_seq_len)
+    data = CustomDataset(p, 'train', min_event_length=p.max_seq_len)
     print(data)
 
     #============================================================================================
@@ -365,7 +320,7 @@ if __name__ == "__main__":
     #__calculate_num_batches method caluculates the number of batches in the dataset, which is needed for __len__
     #__getitem__ returns a batch of data, given an idx
     #============================================================================================
-    num_batches = data.calculate_num_batches('train', p.encoder_seq_len, 1)
+    num_batches = data.calculate_num_batches(p.encoder_seq_len, 1)
     time.sleep(2)
     for i in range(num_batches+1):
         print(i,"===============================")
@@ -373,21 +328,21 @@ if __name__ == "__main__":
         print(f'encoder_input shape: {batch[0]["encoder_inputs"].shape}')
         print(f'decoder_input shape: {batch[0]["decoder_inputs"].shape}')
         print(f'decoder_output shape: {batch[1].shape}')
-        for file in data.model_data['train']:
-            print(file.file_path,file.current_note_index)
-        print(len(data.train_complete_files))
-    print(len(data.train_complete_files))
+        for file in data.data:
+            print(file.path,file.current_note_index)
+        print(len(data.complete_files))
+    print(len(data.complete_files))
 
     # num_train_files = len(data.model_data['train'])
     # print(f"Number of Train files: {num_train_files}")
     # num_batches_generated = 0
-    # while len(data.train_complete_files) < num_train_files:
+    # while len(data.complete_files) < num_train_files:
     #     batch = data.__getitem__(0)
     #     print(f"Batch shape: {batch[0]['encoder_inputs'].shape}")
     #     print(f"Batch shape: {batch[0]['decoder_inputs'].shape}")
     #     print(f"Batch shape: {batch[1].shape}")
     #     num_batches_generated += 1
-    #     print(len(data.train_complete_files))
+    #     print(len(data.complete_files))
 
     # print(f"Number of batches generated: {num_batches_generated}")
 

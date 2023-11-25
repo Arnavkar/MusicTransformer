@@ -13,7 +13,6 @@ from BaselineTransformer.baselineModel import createBaselineTransformer
 from train_utils import setup_experiment
 import testData as test #For training purposes
 
-
 if __name__ == "__main__":
     #os.environ["CUDA_VISIBLE_DEVICES"]="1"
     #handle all command line arguments and parsing
@@ -33,25 +32,33 @@ if __name__ == "__main__":
     base_path, p, logger = setup_experiment(args)
 
     #Set up Dataset
-    #================
-    # Test data - simple scales etc.
-    #================
-    train,val,_ = test.mockTfDataset_from_encoded_midi('./data/processed/MIDI-Unprocessed_01_R1_2008_01-04_ORIG_MID--AUDIO_01_R1_2008_wav--2.midi.pickle', p.encoder_seq_len)
 
-    train = train.shuffle(len(train))
-    train = train.batch(p.batch_size, drop_remainder=True)
-    train = train.map(test.format_dataset)
+    #=================================
+    # simple scales as a sequence of numbers (no encoding) etc.
+    #=================================
+    # train,val,_ = test.mockTfDataset(test.MAJOR_SCALE, 12)
 
-    val = val.shuffle(len(val))
-    val = val.batch(p.batch_size, drop_remainder=True)
-    val = val.map(test.format_dataset)
+    #=================================
+    # A window of {encoder_seq_len} taken throughout the entire midi file
+    #=================================
+    # train,val,_ = test.mockTfDataset_from_encoded_midi('./data/processed/MIDI-Unprocessed_01_R1_2008_01-04_ORIG_MID--AUDIO_01_R1_2008_wav--2.midi.pickle', p.encoder_seq_len)
 
+    # #Shuffle and Batch data - map for the baseline transformer model
+    # train = train.shuffle(len(train))
+    # train = train.batch(p.batch_size, drop_remainder=True)
+    # train = train.map(test.format_dataset)
+
+    # val = val.shuffle(len(val))
+    # val = val.batch(p.batch_size, drop_remainder=True)
+    # val = val.map(test.format_dataset)
+
+    #Instantiate a version of our custom dataset class
+    train = CustomDataset(p, 'train', min_event_length=p.encoder_seq_len*2)
+    val = CustomDataset(p, 'val', min_event_length=p.encoder_seq_len*2)
     
-    #Instantiate and Adam optimizer
-    # optimizer = tf.keras.optimizers.Adam(, p.beta_1, p.beta_2, p.epsilon)
+    #Instantiate Adam optimizer (NOTE: using the legacy optimizer for running on MacOS CPu)
     optimizer = tf.keras.optimizers.legacy.Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
 
-    # with strategy.scope():
     if args.with_baseline:
         print("Creating baseline transformer...")
         model = createBaselineTransformer(p)
@@ -68,15 +75,13 @@ if __name__ == "__main__":
         save_weights_only = True,
     )
     
-    early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+    early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
 
     tensorboard = tf.keras.callbacks.TensorBoard(
         log_dir=base_path+'logs',
         update_freq='epoch',
         histogram_freq = 1,
     )
-
-
 
     #Train model and save history
     try:
@@ -86,6 +91,7 @@ if __name__ == "__main__":
             epochs = p.epochs,
             validation_data = val,
             callbacks = [model_checkpoint, early_stopping, tensorboard],
+            steps_per_epoch = 500
         )
         logger.info("Training Complete! Total time taken: %.2fs" % (time() - start_time))  
         logger.info("Saving History...")
