@@ -91,7 +91,7 @@ if __name__ == '__main__':
 
         print(f"Latest Checkpoint path: {latest_checkpoint}")
         #Add expect_partial for lazy creation of weights
-        model.load_weights('./models/testmodel_baseline_majorscale/checkpoints/checkpoints_23').expect_partial()
+        model.load_weights(latest_checkpoint).expect_partial()
         print("Checkpoint restored!")
     
     improvisor = Improvisor(model,p)
@@ -99,13 +99,20 @@ if __name__ == '__main__':
     #=====================================================================
     #Test with very simple sequences of midi notes - not yet midi encoded
     #=====================================================================
-    _ , _ ,  test_data = test.mockTfDataset(test.MAJOR_SCALE, 12)
+    # _ , _ ,  test_data = test.mockTfDataset(test.MAJOR_SCALE, 12)
+    # for i in range(len(encoder_inputs)):
+    #     print('encoderinput :{},\t decoder input:{},\t decoder output:{} \t, improvisor output:{} '.format(encoder_inputs[i],decoder_inputs[i],decoder_outputs[i],improvisor([encoder_inputs[i]])))
+
+    #=====================================================================
+    #Test with a single midi_encoded_file
+    #=====================================================================
+
+    _,_,test_data = test.mockTfDataset_from_encoded_midi('./data/processed/MIDI-Unprocessed_01_R1_2008_01-04_ORIG_MID--AUDIO_01_R1_2008_wav--2.midi.pickle', p.encoder_seq_len)
+
     test_data = test_data.shuffle(len(test_data))
     test_data = test_data.batch(p.batch_size, drop_remainder=True)
     test_data = test_data.map(test.format_dataset)
     
-    test_sequences = output_sequences = actual_sequences = None
-
     for inputs, targets in test_data.take(1):
         encoder_inputs = inputs["encoder_inputs"]
         decoder_inputs = inputs["decoder_inputs"]
@@ -115,35 +122,31 @@ if __name__ == '__main__':
     decoder_inputs = decoder_inputs.numpy()
     decoder_outputs = decoder_outputs.numpy()
 
-    for i in range(len(encoder_inputs)):
-        print('encoderinput :{},\t decoder input:{},\t decoder output:{} \t, improvisor output:{} '.format(encoder_inputs[i],decoder_inputs[i],decoder_outputs[i],improvisor([encoder_inputs[i]])))
-
-    #TEST WITH seq2seq batch method from custom dataset
-    # _ , test_batchX,test_batchY = dataset.seq2seq_batch(1, p.encoder_seq_len, 'test', 1)
-    # #extract a test sequence of the first 20 elements
-    # test_sequence = list(test_batchX[0][0:300])
-
-    # if not os.path.exists('./samples'):
-    #     os.mkdir('./samples')
+    if not os.path.exists('./samples'):
+        os.mkdir('./samples')
    
-    # try:
-    #     time_recorded = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
-    #     sample_path = './samples' + f'/{args.model_name}_{time_recorded}/'
+    try:
         
-    #     os.mkdir(sample_path)
+        for i in range(5):
+            time_recorded = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
+            sample_path = './samples' + f'/{args.model_name}_{time_recorded}/'
+        
+            os.mkdir(sample_path)
+            decode_midi(encoder_inputs[i],file_path=sample_path + 'input.midi')
+            print('input.mid written')
 
-    #     decode_midi(test_sequence,file_path=sample_path + 'input.midi')
-    #     print('input.mid written')
+            output_sequence = list(improvisor([encoder_inputs[i]]))
+            #Strip start and end tokens
+            output_sequence = output_sequence[1:-1]
+            print(output_sequence)
+            decode_midi(output_sequence,file_path=sample_path + 'output.midi')
+            print('output.mid written')
 
-    #     output_sequence = list(improvisor([test_sequence]))
-    #     print(output_sequence)
-    #     decode_midi(output_sequence,file_path=sample_path + 'output.midi')
-    #     print('output.mid written')
+            #strip end token
+            decode_midi(decoder_outputs[i][:-1],file_path=sample_path + 'actual.midi')
+            print('actual.mid written')
 
-    #     decode_midi(actual_sequence,file_path=sample_path + 'actual.midi')
-    #     print('actual.mid written')
-
-    # except Exception as e:
-    #     os.rmdir(sample_path)
-    #     print(e)
-    # print("Inference complete")
+    except Exception as e:
+        os.rmdir(sample_path)
+        print(e)
+    print("Inference complete")

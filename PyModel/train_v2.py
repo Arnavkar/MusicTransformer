@@ -31,14 +31,12 @@ if __name__ == "__main__":
     print(args)
     #Set up experiment
     base_path, p, logger = setup_experiment(args)
-    p.encoder_seq_len = 12
-    p.decoder_seq_len = 14
 
     #Set up Dataset
     #================
     # Test data - simple scales etc.
     #================
-    train,val,_ = test.mockTfDataset(test.MAJOR_SCALE, 12)
+    train,val,_ = test.mockTfDataset_from_encoded_midi('./data/processed/MIDI-Unprocessed_01_R1_2008_01-04_ORIG_MID--AUDIO_01_R1_2008_wav--2.midi.pickle', p.encoder_seq_len)
 
     train = train.shuffle(len(train))
     train = train.batch(p.batch_size, drop_remainder=True)

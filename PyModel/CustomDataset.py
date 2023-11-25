@@ -7,6 +7,7 @@ from Transformer.params import midi_test_params_v2, Params
 import tensorflow as tf
 import json
 import string
+import time
 
 #==================================================================
 #Custom Dataset 
@@ -36,8 +37,11 @@ class CustomDataset():
         # self.partition_by_filecount()
         self.partition_by_maestro_split()
 
+        #Just to test with a few files
+        self.model_data['train'] = self.model_data['train'][:10]
+        
         self.convert_all_to_fileData()
-        #random.seed(self.params.seed)
+        random.seed(self.params.seed)
 
         # if self.params.record_data_stats:
         #     self.dataset_stats = {
@@ -47,7 +51,7 @@ class CustomDataset():
         #     }
         #     self.set_up_stats()
     
-    def get_maestroJSON(self, path="./data/raw/maestro-v3.0.0.json") -> list:
+    def get_maestroJSON(self, path="./data/raw/maestro-v3.0.0/maestro-v3.0.0.json") -> list:
         with open(path) as f:
             data = json.load(f)
         return data
@@ -149,43 +153,46 @@ class CustomDataset():
         #select files based on training mode
         files = self.model_data[mode]
 
-        #select k files from the list of files
-        files = random.sample(files, batch_size)
+        selected = []
+
+        #select k files from the list of files - allows us to grab a batch from the same file multiple times
+        for _ in range(batch_size):
+            selected.append(random.choice(files))
 
         #from each file, extract a random sequence of length
-        data = [self.extract_sequence_v2(file, length, mode) for file in files]
+        data = [self.extract_sequence_v2(file, length, mode) for file in selected]
         
         # for array in data:
         #     assert len(array) == length-1, f"Length of array {len(array)} is not equal to length {length-1}"
         return np.array(data,int)
     
     #NOTE: Taken from Github implementation of Transformer - no longer using this method
-    def extract_sequence(self, fname, length, mode):
-        #Grab a random sample of length len from a while
-        with open(fname, 'rb') as f:
-            data = pickle.load(f)
-        if length <= len(data):
-            #If in test mode, always start from the beginning of the file, else start from a random index
-            if mode == "test":
-                start = 0
-            else:
-                start = random.randrange(0,len(data) - length)
-            #extract a sequence of length len from the file and append the EOS token to the end
-            data = data[start:start + length-2]
-            data = np.append(data, self.params.token_eos)
-        else:
-            #if there is not enough data in the file, start from the beginning of the file
-            start = 0
-            #concat EOS tokens to the end of the sequence
-            data = np.append(data, self.params.token_eos)
-            #pad the sequence with pad tokens until the length is equal to the length parameter
-            while len(data) < length-1:
-                data = np.append(data, self.params.pad_token)
+    # def extract_sequence(self, fname, length, mode):
+    #     #Grab a random sample of length len from a while
+    #     with open(fname, 'rb') as f:
+    #         data = pickle.load(f)
+    #     if length <= len(data):
+    #         #If in test mode, always start from the beginning of the file, else start from a random index
+    #         if mode == "test":
+    #             start = 0
+    #         else:
+    #             start = random.randrange(0,len(data) - length)
+    #         #extract a sequence of length len from the file and append the EOS token to the end
+    #         data = data[start:start + length-2]
+    #         data = np.append(data, self.params.token_eos)
+    #     else:
+    #         #if there is not enough data in the file, start from the beginning of the file
+    #         start = 0
+    #         #concat EOS tokens to the end of the sequence
+    #         data = np.append(data, self.params.token_eos)
+    #         #pad the sequence with pad tokens until the length is equal to the length parameter
+    #         while len(data) < length-1:
+    #             data = np.append(data, self.params.pad_token)
 
-        # if self.params.record_data_stats:
-        #     self.record_stats(fname, start, length, len(data),mode)
+    #     # if self.params.record_data_stats:
+    #     #     self.record_stats(fname, start, length, len(data),mode)
 
-        return data
+    #     return data
     
     #v2 of extract_sequence, grabs a sequence of size 'length' from file, starting at the start index 0. Then, shifts the sequence down by 1
     def extract_sequence_v2(self, file_data, length, mode):
@@ -203,15 +210,12 @@ class CustomDataset():
 
             #update the start index for the next sequence
             file_data.current_note_index += 1
-
-
         else:
             #if we either 1) perfectly hit the last event in the sequence with a full sequence 2) we hit the end of the file early and need to pad with zeros
             #if there is not enough data left in the file (only possible with stride > 1) then start from start index and take the remaining events in the file, padding the remaining sequence with zeros
             data = data[start_index:]
             while len(data) < length:
                 data = np.append(data, self.params.pad_token)
-
             self.move_to_complete_list(file_data,mode)
 
         return data
@@ -235,11 +239,9 @@ class CustomDataset():
         #Accounting for the eos token added in extract_sequence
         x = data[:, 0:length]
         y = data[:, length:length + num_tokens_to_predict]
-
-        #add sos and eos tokens to the y sequence fed to the decoder
-        y=np.insert(y,0,self.params.token_sos,axis=1)
-        y=np.append(y,self.params.token_eos,axis=1)
-        return data, x, y
+        
+        y = np.array([[self.params.token_sos] + list(seq) + [self.params.token_eos] for seq in y])
+        return x, y
 
     def calculate_num_batches(self, mode, seq_len, stride):
         num_examples = 0
@@ -257,98 +259,103 @@ class CustomDataset():
         return num_batches
     
     def __len__(self):
-        return self.calculate_num_batches('train', self.params.encoder_seq_len*2, 1)
+        return self.calculate_num_batches('train', self.params.encoder_seq_len, 1) + 1
     
     def __getitem__(self, idx):
-        batch = self.seq2seq_batch(self.params.batch_size, self.params.encoder_seq_len, "train", self.params.decoder_seq_len)
-
-    
-    def __format_dataset(self, x, y):
+        x,y = self.seq2seq_batch(self.params.batch_size, self.params.encoder_seq_len, "train", self.params.encoder_seq_len)
         return (
             {
                 "encoder_inputs": x,
                 "decoder_inputs": y[:, :-1],
             },
             y[:, 1:],
-    )
+        )
     
+    def on_epoch_end(self):
+        print("Epoch ended, resetting fileData objects")
+        self.model_data['train'] += self.train_complete_files
+        self.train_complete_files = []
+        for file in self.model_data['train']:
+            file.current_note_index = 0
+
     #Construct a tf dataset directly from the midi files - loads everything into memory                
-    def construct_tf_dataset(self,mode,seq_len,stride = 1,for_baseline=False,num_files=None):
-        current_file_index = 0
-        current_note_index = 0
-        if num_files is not None:
-            paths = self.model_data[mode][:num_files]
-        else:
-            paths = self.model_data[mode]
-        x, y = [],[]
-        #while looping through list of files
-        while current_file_index < len(paths):
-            file_data = paths[current_file_index]
-            # print(fp)
-            with open(file_data.file_path, 'rb') as f: 
-                test_data = pickle.load(f)
+    # def construct_tf_dataset(self,mode,seq_len,stride = 1,for_baseline=False,num_files=None):
+    #     current_file_index = 0
+    #     current_note_index = 0
+    #     if num_files is not None:
+    #         paths = self.model_data[mode][:num_files]
+    #     else:
+    #         paths = self.model_data[mode]
+    #     x, y = [],[]
+    #     #while looping through list of files
+    #     while current_file_index < len(paths):
+    #         file_data = paths[current_file_index]
+    #         # print(fp)
+    #         with open(file_data.file_path, 'rb') as f: 
+    #             test_data = pickle.load(f)
 
-            #while looping through each file, grab a sequence of length seq_len 
-            #stride sets the distance between each grabbed sequence
-            #This while loop ensures we don't grab sequences that are too short, they are discarded
-            while current_note_index + seq_len*2 + 1 < len(test_data):
-                x_start = current_note_index
-                x_end = current_note_index + seq_len
-                sequence_x = test_data[x_start:x_end]
+    #         #while looping through each file, grab a sequence of length seq_len 
+    #         #stride sets the distance between each grabbed sequence
+    #         #This while loop ensures we don't grab sequences that are too short, they are discarded
+    #         while current_note_index + seq_len*2 + 1 < len(test_data):
+    #             x_start = current_note_index
+    #             x_end = current_note_index + seq_len
+    #             sequence_x = test_data[x_start:x_end]
 
-                y_start = x_end 
-                y_end = x_end + seq_len
-                sequence_y = test_data[y_start:y_end-1]
-                sequence_y = np.insert(sequence_y,0,self.params.token_sos)
-                sequence_y = np.append(sequence_y,self.params.token_eos)
-                x.append(sequence_x)
-                y.append(sequence_y)
-                current_note_index += stride
+    #             y_start = x_end 
+    #             y_end = x_end + seq_len
+    #             sequence_y = test_data[y_start:y_end-1]
+    #             sequence_y = np.insert(sequence_y,0,self.params.token_sos)
+    #             sequence_y = np.append(sequence_y,self.params.token_eos)
+    #             x.append(sequence_x)
+    #             y.append(sequence_y)
+    #             current_note_index += stride
             
-            print(f'File {current_file_index} at path {file_data.file_path} complete: {current_note_index} notes processed out of {len(test_data)}')
-            #move to next file
-            current_file_index += 1
-            current_note_index = 0
+    #         print(f'File {current_file_index} at path {file_data.file_path} complete: {current_note_index} notes processed out of {len(test_data)}')
+    #         #move to next file
+    #         current_file_index += 1
+    #         current_note_index = 0
 
-        # assert len(x) == len(y), f"num of x samples should equal to y samples, {len(x)} != {len(y)}"
-        # for i in range(len(x)):
-        #     assert len(x[i]) == len(y[i]), f"Length of x elem should be 2 less than y elem: {len(x[i])} != {len(y[i])}"
-        #     # assert x[i][0] == self.params.token_sos, f"First token of x elem at {i} is not sos token: {x[i][0]} != {self.params.token_sos}"
-        #     assert y[i][0] == self.params.token_sos, f"First token of y elem at {i} is not sos token: {y[i][0]} != {self.params.token_sos}"
-        #     #assert x[i][-1] == self.params.token_eos, f"Last token of x elem at {i} is not eos token: {x[i][-1]} != {self.params.token_eos}"
-        #     assert y[i][-1] == self.params.token_eos, f"Last token of y elem at {i} is not eos token: {y[i][-1]} != {self.params.token_eos}"
-        #     assert (x[i][2:-1] == y[i][1:-2]).all(), f"Sequence of x elem at {i} is not equal to sequence of y elem at {i}: {x[i][2:-1]} != {y[i][1:-2]}"
+    #     # assert len(x) == len(y), f"num of x samples should equal to y samples, {len(x)} != {len(y)}"
+    #     # for i in range(len(x)):
+    #     #     assert len(x[i]) == len(y[i]), f"Length of x elem should be 2 less than y elem: {len(x[i])} != {len(y[i])}"
+    #     #     # assert x[i][0] == self.params.token_sos, f"First token of x elem at {i} is not sos token: {x[i][0]} != {self.params.token_sos}"
+    #     #     assert y[i][0] == self.params.token_sos, f"First token of y elem at {i} is not sos token: {y[i][0]} != {self.params.token_sos}"
+    #     #     #assert x[i][-1] == self.params.token_eos, f"Last token of x elem at {i} is not eos token: {x[i][-1]} != {self.params.token_eos}"
+    #     #     assert y[i][-1] == self.params.token_eos, f"Last token of y elem at {i} is not eos token: {y[i][-1]} != {self.params.token_eos}"
+    #     #     assert (x[i][2:-1] == y[i][1:-2]).all(), f"Sequence of x elem at {i} is not equal to sequence of y elem at {i}: {x[i][2:-1]} != {y[i][1:-2]}"
 
-        dataset = tf.data.Dataset.from_tensor_slices((x,y))
-        dataset_path = f"./data/tf_midi_" + mode + f"_{seq_len}_{stride}"
-        print("Tf dataset constructed")
-        if for_baseline == True:
-            path += "_baseline"
-            dataset = dataset.map(self.__format_dataset)
+    #     dataset = tf.data.Dataset.from_tensor_slices((x,y))
+    #     dataset_path = f"./data/tf_midi_" + mode + f"_{seq_len}_{stride}"
+    #     print("Tf dataset constructed")
+    #     if for_baseline == True:
+    #         path += "_baseline"
+    #         dataset = dataset.map(self.__format_dataset)
  
-        if os.path.exists(path):
-            print('Dataset already exists - do you want to overwrite? Y/N')
-            char = input().lower()
-            while char not in ['y','n']:
-                print('Invalid input - do you want to overwrite? Y/N')
-                char = input().lower()
-            if char == 'n':
-                #Append a random string and save this data set so as to not overwrite the original
-                res = ''.join(random.choices(string.ascii_uppercase +
-                             string.digits, k=7))
-                path = path + res
-                tf.data.Dataset.save(dataset, path)
-            else:
-                tf.data.Dataset.save(dataset, path)
+    #     if os.path.exists(path):
+    #         print('Dataset already exists - do you want to overwrite? Y/N')
+    #         char = input().lower()
+    #         while char not in ['y','n']:
+    #             print('Invalid input - do you want to overwrite? Y/N')
+    #             char = input().lower()
+    #         if char == 'n':
+    #             #Append a random string and save this data set so as to not overwrite the original
+    #             res = ''.join(random.choices(string.ascii_uppercase +
+    #                          string.digits, k=7))
+    #             path = path + res
+    #             tf.data.Dataset.save(dataset, path)
+    #         else:
+    #             tf.data.Dataset.save(dataset, path)
             
-            print(f"Dataset saved at {path}")
+    #         print(f"Dataset saved at {path}")
         
-        return path
+    #     return path
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"]=""
     '''Construct and load dataset with tf.data.Dataset'''
     p = Params(midi_test_params_v2)
+
     data = CustomDataset(p, min_event_length=p.max_seq_len)
     print(data)
 
@@ -358,7 +365,19 @@ if __name__ == "__main__":
     #__calculate_num_batches method caluculates the number of batches in the dataset, which is needed for __len__
     #__getitem__ returns a batch of data, given an idx
     #============================================================================================
-    num_examples = data.calculate_num_batches('train', p.encoder_seq_len, 1)
+    num_batches = data.calculate_num_batches('train', p.encoder_seq_len, 1)
+    time.sleep(2)
+    for i in range(num_batches+1):
+        print(i,"===============================")
+        batch = data.__getitem__(i)
+        print(f'encoder_input shape: {batch[0]["encoder_inputs"].shape}')
+        print(f'decoder_input shape: {batch[0]["decoder_inputs"].shape}')
+        print(f'decoder_output shape: {batch[1].shape}')
+        for file in data.model_data['train']:
+            print(file.file_path,file.current_note_index)
+        print(len(data.train_complete_files))
+    print(len(data.train_complete_files))
+
     # num_train_files = len(data.model_data['train'])
     # print(f"Number of Train files: {num_train_files}")
     # num_batches_generated = 0

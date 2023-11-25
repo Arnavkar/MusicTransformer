@@ -79,7 +79,7 @@ midi_test_params_v2 = {
     "epsilon":1e-8,
     "encoder_seq_len": 512,
     "decoder_seq_len": 512,
-    "max_seq_len":1024,
+    "max_seq_len":4096,
     "pad_token" : 0,
     "token_sos" : 1,
     "token_eos" : 2,

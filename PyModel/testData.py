@@ -1,5 +1,6 @@
 import tensorflow as tf
 import random
+import pickle
 
 MAJOR_SCALE = [24, 26, 28, 29, 31, 33, 35]
 MINOR_SCALE = [24, 26, 27, 29, 31, 32, 34]
@@ -46,6 +47,29 @@ def mockTfDataset(scale, seq_len):
     test = tf.data.Dataset.from_tensor_slices((test_x, test_y))
     return train,val,test
 
+def mockTfDataset_from_encoded_midi(path, seq_len):
+    random.seed(42)
+    with open(path, 'rb') as f:
+        event_sequence = pickle.load(f)
+    print("Len of event sequence:{}".format(len(event_sequence)))
+    all_sequences = rolling_window([event_sequence], seq_len*2)
+    random.shuffle(all_sequences)
+    x, y = [], []
+    for seq in all_sequences:
+        x.append(seq[:seq_len])
+        y.append([1] + seq[seq_len:] + [2])
+
+    split_1 = int(0.8*len(x))
+    split_2 = int(0.9*len(x))
+
+    train_x , val_x, test_x = x[0:split_1], x[split_1:split_2], x[split_2:]
+    train_y , val_y, test_y = y[0:split_1], y[split_1:split_2], y[split_2:]
+    
+    train = tf.data.Dataset.from_tensor_slices((train_x, train_y))
+    val = tf.data.Dataset.from_tensor_slices((val_x, val_y))
+    test = tf.data.Dataset.from_tensor_slices((test_x, test_y))
+    return train,val,test
+
 def format_dataset(x, y):
     return (
         {
@@ -57,7 +81,8 @@ def format_dataset(x, y):
 
 if __name__ == '__main__':
     single_scale, all_scales = constructScales(MAJOR_SCALE)
-    train,test,val = mockTfDataset(MAJOR_SCALE, 12)
+    train,val,test, = mockTfDataset(MAJOR_SCALE, 12)
+    train,val,test = mockTfDataset_from_encoded_midi('./data/processed/MIDI-Unprocessed_01_R1_2008_01-04_ORIG_MID--AUDIO_01_R1_2008_wav--2.midi.pickle', 128)
     # train = train.shuffle(len(train))
     train = train.batch(16, drop_remainder=True)
     train = train.map(format_dataset)
