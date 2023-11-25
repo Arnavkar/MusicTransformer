@@ -12,6 +12,7 @@ from Transformer.LRSchedule import LRScheduler
 from BaselineTransformer.baselineModel import createBaselineTransformer
 from train_utils import setup_experiment
 import testData as test #For training purposes
+from shared_mem import shared_mem_multiprocessing
 
 if __name__ == "__main__":
     #os.environ["CUDA_VISIBLE_DEVICES"]="1"
@@ -54,6 +55,9 @@ if __name__ == "__main__":
 
     #Instantiate a version of our custom dataset class
     train = CustomDataset(p, 'train', min_event_length=p.encoder_seq_len*2)
+    for file in train.data:
+      logger.info(f"Using file:{file.path}")
+    train_gen = shared_mem_multiprocessing(train, workers=32)
     val = CustomDataset(p, 'val', min_event_length=p.encoder_seq_len*2)
     
     #Instantiate Adam optimizer (NOTE: using the legacy optimizer for running on MacOS CPu)
@@ -89,9 +93,9 @@ if __name__ == "__main__":
         history = model.fit(
             train, 
             epochs = p.epochs,
-            validation_data = val,
             callbacks = [model_checkpoint, early_stopping, tensorboard],
-            steps_per_epoch = 500
+            use_multiprocessing=True,
+            workers = 8
         )
         logger.info("Training Complete! Total time taken: %.2fs" % (time() - start_time))  
         logger.info("Saving History...")

@@ -3,10 +3,11 @@
 # As a rule of thumb, the embedding size should be between the square root and the cube root 
 # of the number of categories. For example, if we have a variable with 100 categories, the embedding size should be between 4 and 5.
 
-import midi_neural_preprocessor.processor as sequence
+# import midi_neural_preprocessor.processor as sequence
+# event_dim = sequence.RANGE_NOTE_ON + sequence.RANGE_NOTE_OFF + sequence.RANGE_TIME_SHIFT + sequence.RANGE_VEL
 
 #event_dim equal to 388
-event_dim = sequence.RANGE_NOTE_ON + sequence.RANGE_NOTE_OFF + sequence.RANGE_TIME_SHIFT + sequence.RANGE_VEL
+event_dim = 388 
 
 #test params from tutorial - for translation task
 baseline_test_params= {
@@ -61,30 +62,29 @@ baseline_test_params= {
 
 #test params for model that uses model.fit
 midi_test_params_v2 = {
-    "num_heads": 4,  # Number of self-attention heads
-    "key_dim": 128,  # Dimensionality of linearly projected queries and keys
-    "value_dim": 128,  # Dimensionality of linearly projected values
+    "num_heads": 8,  # Number of self-attention heads
+    "key_dim": 64,  # Dimensionality of linearly projected queries and keys
+    "value_dim": 64,  # Dimensionality of linearly projected values
     "model_dim":512,  # Dimensionality of the model final output
     "batch_size" :64,  # Batch size from the training process
     "l_r":0.001,
     "feed_forward_dim" : 2048,
     "dropout_rate" : 0.1,
     "encoder_vocab_size" : event_dim,
-    "num_encoder_layers" : 6,
+    "num_encoder_layers" : 4,
     "decoder_vocab_size" : event_dim,
-    "num_decoder_layers" : 6,
+    "num_decoder_layers" : 4,
     "epochs":200,
     "beta_1":0.9,
     "beta_2":0.98,
     "epsilon":1e-8,
     "encoder_seq_len": 512,
     "decoder_seq_len": 512,
-    "max_seq_len":4096,
+    "max_seq_len":512,
     "pad_token" : 0,
     "token_sos" : 1,
     "token_eos" : 2,
     "debug":True,
-    "record_data_stats":False,
     "steps_per_epoch": 500,
     "save_freq": 10,
     "seed":236, #Random seed for reproduceable results

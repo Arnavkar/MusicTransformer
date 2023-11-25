@@ -33,8 +33,10 @@ class CustomDataset(tf.keras.utils.Sequence):
 
         # self.partition_by_filecount()
         self.retrieve_files_by_maestro_split()
-
         random.seed(self.params.seed)
+
+        random.shuffle(self.data)
+        self.data = self.data[0:60]
     
     def get_maestroJSON(self, path="./data/raw/maestro-v3.0.0/maestro-v3.0.0.json") -> list:
         with open(path) as f:
