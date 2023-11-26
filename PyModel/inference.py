@@ -2,7 +2,7 @@ from model import TransformerModel
 import tensorflow as tf
 from pickle import load
 from keras.preprocessing.sequence import pad_sequences
-from CustomDataset import CustomDataset
+from data.CustomDataset import CustomDataset
 import numpy as np
 import argparse
 import json

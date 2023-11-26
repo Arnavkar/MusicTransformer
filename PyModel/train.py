@@ -1,4 +1,4 @@
-from CustomDataset import CustomDataset
+from data.CustomDataset import CustomDataset
 from tensorflow.keras.metrics import Mean
 from model import TransformerModel
 from time import time

@@ -1,4 +1,4 @@
-from CustomDataset import CustomDataset
+from data.CustomDataset import CustomDataset
 from tensorflow.keras.metrics import Mean
 from model import TransformerModel
 from time import time
@@ -11,7 +11,7 @@ import json
 from Transformer.LRSchedule import LRScheduler
 from BaselineTransformer.baselineModel import createBaselineTransformer
 from train_utils import setup_experiment
-import testData as test #For training purposes
+import data.testDataSet as test #For training purposes
 
 if __name__ == "__main__":
     #os.environ["CUDA_VISIBLE_DEVICES"]="1"

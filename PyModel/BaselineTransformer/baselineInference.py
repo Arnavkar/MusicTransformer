@@ -2,7 +2,7 @@ from model import TransformerModel
 import tensorflow as tf
 from pickle import load
 from keras.preprocessing.sequence import pad_sequences
-from CustomDataset import CustomDataset
+from data.CustomDataset import CustomDataset
 import numpy as np
 import argparse
 import json
@@ -13,7 +13,7 @@ from Transformer.utils import custom_loss
 from datetime import datetime
 from Transformer.LRSchedule import LRScheduler
 from .baselineModel import createBaselineTransformer
-import testData as test
+import data.testDataSet as test
 
 
 class Improvisor(tf.Module):
