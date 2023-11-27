@@ -1,20 +1,19 @@
-from data.CustomDataset import CustomDataset
+from Dataset.SequenceDataset import SequenceDataset
+from Dataset.testDataSet import mockTfDataset_from_encoded_midi, mockTfDataset, format_dataset, rolling_window, constructScales
 from tensorflow.keras.metrics import Mean
 from model import TransformerModel
 from time import time
 import tensorflow as tf
 from Transformer.utils import custom_loss, custom_accuracy
-from pickle import dump
-from datetime import datetime
 import argparse
 import json
 from Transformer.LRSchedule import LRScheduler
 from BaselineTransformer.baselineModel import createBaselineTransformer
 from train_utils import setup_experiment
-import Dataset.testDataSet as test #For training purposes
+import os
 
 if __name__ == "__main__":
-    #os.environ["CUDA_VISIBLE_DEVICES"]="1"
+    os.environ["CUDA_VISIBLE_DEVICES"]="0"
     #handle all command line arguments and parsing
     parser = argparse.ArgumentParser()
     parser.add_argument('-n','--name', type=str,required= True)
@@ -38,24 +37,26 @@ if __name__ == "__main__":
     #====================================================================
     # train,val,_ = test.mockTfDataset(test.MAJOR_SCALE, 12)
 
-    #====================================================================
+    # ====================================================================
     # A window of {encoder_seq_len} taken throughout the entire midi file
-    #====================================================================
-    # train,val,_ = test.mockTfDataset_from_encoded_midi('./data/processed/MIDI-Unprocessed_01_R1_2008_01-04_ORIG_MID--AUDIO_01_R1_2008_wav--2.midi.pickle', p.encoder_seq_len)
+    # ====================================================================
+    # train,val,_ = mockTfDataset_from_encoded_midi('./data/processed/MIDI-Unprocessed_01_R1_2008_01-04_ORIG_MID--AUDIO_01_R1_2008_wav--2.midi.pickle', p.encoder_seq_len)
 
     # #Shuffle and Batch data - map for the baseline transformer model
     # train = train.shuffle(len(train))
     # train = train.batch(p.batch_size, drop_remainder=True)
-    # train = train.map(test.format_dataset)
+    # train = train.map(format_dataset)
 
     # val = val.shuffle(len(val))
     # val = val.batch(p.batch_size, drop_remainder=True)
-    # val = val.map(test.format_dataset)
+    # val = val.map(format_dataset)
 
     #====================================================================
     # Custom dataset class instantiation for train and val
     #====================================================================
-    train = CustomDataset(p, 'train', min_event_length=p.encoder_seq_len*2,num_files_to_use=1,logger=logger)
+    train = SequenceDataset(p, 'train', min_event_length=p.encoder_seq_len*2,logger=logger,num_files_to_use=2)
+    # val = SequenceDataset(p, 'val', min_event_length=p.encoder_seq_len*2,logger=logger,num_files_to_use=1)
+
     if train.num_files_to_use != None:
         logger.info(f"Using only {train.num_files_to_use} files for training")
         for file in train.data:
@@ -66,7 +67,7 @@ if __name__ == "__main__":
     #====================================================================
 
     #Instantiate Adam optimizer (NOTE: using the legacy optimizer for running on MacOS CPu)
-    optimizer = tf.keras.optimizers.legacy.Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
+    optimizer = tf.keras.optimizers.Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
 
     #Choose between custom transformer vs baseline transformer
     if args.with_baseline:
@@ -97,7 +98,6 @@ if __name__ == "__main__":
         log_dir=base_path+'logs',
         update_freq='epoch',
         histogram_freq = 1,
-        profile_batch='5, 10'
     )
     #====================================================================
     #Train model and save history
@@ -108,8 +108,9 @@ if __name__ == "__main__":
         logger.info("Training model...")
         history = model.fit(
             train, 
-            epochs = p.epochs,
-            callbacks = [model_checkpoint, early_stopping, tensorboard],
+            epochs = 1,
+            steps_per_epoch = 50,
+            callbacks = [model_checkpoint, tensorboard]
         )
         logger.info("Training Complete! Total time taken: %.2fs" % (time() - start_time))  
         logger.info("Saving History...")

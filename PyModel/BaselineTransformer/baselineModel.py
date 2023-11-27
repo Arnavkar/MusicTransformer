@@ -1,6 +1,7 @@
 import keras_nlp
 import keras
 from Transformer.params import Params
+from Transformer.MultiHeadAttentionLayer import MultiHeadAttentionLayer
 from tensorflow.keras import layers
 import tensorflow as tf
 
@@ -13,6 +14,7 @@ class TransformerEncoder(tf.keras.layers.Layer):
         self.attention = layers.MultiHeadAttention(
             num_heads=p.num_heads, key_dim=p.model_dim
         )
+        # self.attention = layers.MultiHeadAttentionLayer(p, isRelative=False)
         self.dense_proj = keras.Sequential(
             [
                 layers.Dense(p.feed_forward_dim, activation="relu"),
@@ -25,6 +27,7 @@ class TransformerEncoder(tf.keras.layers.Layer):
 
     def call(self, inputs, mask=None):
         attention_output = self.attention(query=inputs, value=inputs, key=inputs)
+        # attention_output = self.attention([inputs, inputs, inputs])
         proj_input = self.layernorm_1(inputs + attention_output)
         proj_output = self.dense_proj(proj_input)
         return self.layernorm_2(proj_input + proj_output)
@@ -81,9 +84,11 @@ class TransformerDecoder(layers.Layer):
         self.attention_1 = layers.MultiHeadAttention(
             num_heads=p.num_heads, key_dim=p.model_dim
         )
+        # self.attention_1 = layers.MultiHeadAttentionLayer(p, isRelative=False)
         self.attention_2 = layers.MultiHeadAttention(
             num_heads=p.num_heads, key_dim=p.model_dim
         )
+        # self.attention_2 = layers.MultiHeadAttentionLayer(p, isRelative=False)
         self.dense_proj = keras.Sequential(
             [
                 layers.Dense(p.feed_forward_dim, activation="relu"),

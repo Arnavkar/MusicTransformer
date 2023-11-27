@@ -62,9 +62,9 @@ baseline_test_params= {
 
 #test params for model that uses model.fit
 midi_test_params_v2 = {
-    "num_heads": 8,  # Number of self-attention heads
-    "key_dim": 64,  # Dimensionality of linearly projected queries and keys
-    "value_dim": 64,  # Dimensionality of linearly projected values
+    "num_heads": 4,  # Number of self-attention heads
+    "key_dim": 128,  # Dimensionality of linearly projected queries and keys
+    "value_dim": 128,  # Dimensionality of linearly projected values
     "model_dim":512,  # Dimensionality of the model final output
     "batch_size" :64,  # Batch size from the training process
     "l_r":0.001,
