@@ -1,5 +1,5 @@
 from Dataset.SequenceDataset import SequenceDataset
-from Dataset.testDataSet import mockTfDataset_from_encoded_midi, mockTfDataset, format_dataset, rolling_window, constructScales
+from Dataset.testDataSet import TestDataset
 from tensorflow.keras.metrics import Mean
 from model import TransformerModel
 from time import time
@@ -11,9 +11,10 @@ from Transformer.LRSchedule import LRScheduler
 from BaselineTransformer.baselineModel import createBaselineTransformer
 from train_utils import setup_experiment
 import os
+import traceback
 
 if __name__ == "__main__":
-    os.environ["CUDA_VISIBLE_DEVICES"]="0"
+    os.environ["CUDA_VISIBLE_DEVICES"]="1"
     #handle all command line arguments and parsing
     parser = argparse.ArgumentParser()
     parser.add_argument('-n','--name', type=str,required= True)
@@ -35,38 +36,67 @@ if __name__ == "__main__":
     #====================================================================
     # simple scales as a sequence of numbers (no encoding) etc.
     #====================================================================
-    # train,val,_ = test.mockTfDataset(test.MAJOR_SCALE, 12)
+    # train,val,_ = mockTfDataset(MAJOR_SCALE, 12, 2)
 
     # ====================================================================
-    # A window of {encoder_seq_len} taken throughout the entire midi file
+    # Using in-memory dataset with TestDataset
     # ====================================================================
-    # train,val,_ = mockTfDataset_from_encoded_midi('./data/processed/MIDI-Unprocessed_01_R1_2008_01-04_ORIG_MID--AUDIO_01_R1_2008_wav--2.midi.pickle', p.encoder_seq_len)
+    dataset = TestDataset(p, data_format='npy', min_event_length=p.encoder_seq_len*2, num_files_by_split={'train':5,'validation':1,'test':1})
 
-    # #Shuffle and Batch data - map for the baseline transformer model
-    # train = train.shuffle(len(train))
-    # train = train.batch(p.batch_size, drop_remainder=True)
-    # train = train.map(format_dataset)
+    # train, val, _ = dataset.mockTfDataset_from_encoded_midi(3)
+    # # #Shuffle and Batch data - map for the baseline transformer model
 
-    # val = val.shuffle(len(val))
-    # val = val.batch(p.batch_size, drop_remainder=True)
-    # val = val.map(format_dataset)
+    train = dataset.mockTfDataset_from_encoded_midi_path('./data/processed_numpy/piano_train.mid.npy', 1)
+    val = dataset.mockTfDataset_from_encoded_midi_path('./data/processed_numpy/piano_test.mid.npy', 1)
+
+    train = train.shuffle(len(train))
+    train = train.batch(p.batch_size, drop_remainder=True)
+    train = train.map(dataset.format_dataset)
+
+    val = val.shuffle(len(val))
+    val = val.batch(p.batch_size, drop_remainder=True)
+    val = val.map(dataset.format_dataset)
+
+    
 
     #====================================================================
     # Custom dataset class instantiation for train and val
     #====================================================================
-    train = SequenceDataset(p, 'train', min_event_length=p.encoder_seq_len*2,logger=logger,num_files_to_use=2)
-    # val = SequenceDataset(p, 'val', min_event_length=p.encoder_seq_len*2,logger=logger,num_files_to_use=1)
+    # train = SequenceDataset(p, 'train', min_event_length=p.encoder_seq_len*2,logger=logger,num_files_to_use=2)
+    # # val = SequenceDataset(p, 'val', min_event_length=p.encoder_seq_len*2,logger=logger,num_files_to_use=1)
 
-    if train.num_files_to_use != None:
-        logger.info(f"Using only {train.num_files_to_use} files for training")
-        for file in train.data:
-            logger.info(f"Using file:{file.path}")
+    # if train.num_files_to_use != None:
+    #     logger.info(f"Using only {train.num_files_to_use} files for training")
+    #     for file in train.data:
+    #         logger.info(f"Using file:{file.path}")
     
     #====================================================================
-    #Model / Optimizer Set up
+    #Callbacks and Optimizer Set up
     #====================================================================
+    model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
+        base_path + "checkpoints/checkpoints_{epoch:02d}",
+        save_freq='epoch',
+        verbose = 1,
+        save_weights_only = True,
+    )
+    
+    early_stopping = tf.keras.callbacks.EarlyStopping(
+        monitor='val_loss', 
+        patience=5, 
+        restore_best_weights=True
+    )
+
+    tensorboard = tf.keras.callbacks.TensorBoard(
+        log_dir=base_path+'logs',
+        update_freq='epoch',
+        histogram_freq = 1,
+    )
 
     #Instantiate Adam optimizer (NOTE: using the legacy optimizer for running on MacOS CPu)
+    #====================================================================
+    #Model Set up
+    #====================================================================
+
     optimizer = tf.keras.optimizers.Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
 
     #Choose between custom transformer vs baseline transformer
@@ -79,27 +109,6 @@ if __name__ == "__main__":
         model.compile(optimizer = optimizer, loss_fn = custom_loss, accuracy_fn=custom_accuracy)
 
     #====================================================================
-    #Callbacks
-    #====================================================================
-    model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
-        base_path + "checkpoints/checkpoints_{epoch:02d}",
-        save_freq='epoch',
-        verbose = 1,
-        save_weights_only = True,
-    )
-    
-    early_stopping = tf.keras.callbacks.EarlyStopping(
-        monitor='val_loss', 
-        patience=3, 
-        restore_best_weights=True
-    )
-
-    tensorboard = tf.keras.callbacks.TensorBoard(
-        log_dir=base_path+'logs',
-        update_freq='epoch',
-        histogram_freq = 1,
-    )
-    #====================================================================
     #Train model and save history
     #====================================================================
 
@@ -108,8 +117,8 @@ if __name__ == "__main__":
         logger.info("Training model...")
         history = model.fit(
             train, 
-            epochs = 1,
-            steps_per_epoch = 50,
+            epochs = p.epochs,
+            validation_data = val,
             callbacks = [model_checkpoint, tensorboard]
         )
         logger.info("Training Complete! Total time taken: %.2fs" % (time() - start_time))  
@@ -117,5 +126,12 @@ if __name__ == "__main__":
         with open(base_path+'history.json', 'w') as file:
             json.dump(history.history,file)
         logger.info("History Saved!") 
-    except Exception as e:
-        logger.error(e)
+    except KeyboardInterrupt as ex:
+        logger.error(f"KeyBoard Interrupt Occurred")
+        tb = ''.join(traceback.format_exception(etype=type(ex), value=ex, tb=ex.__traceback__))
+        logger.error(tb)
+    except Exception as ex:
+        logger.error(f"Unexpected Exception Occurred")
+        tb = ''.join(traceback.format_exception(etype=type(ex), value=ex, tb=ex.__traceback__))
+        logger.error(tb)
+        

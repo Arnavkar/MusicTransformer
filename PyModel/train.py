@@ -14,7 +14,7 @@ from Transformer.utils import custom_loss, custom_accuracy
 from train_utils import setup_experiment
 
 if __name__ == "__main__":
-    os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
+    os.environ["CUDA_VISIBLE_DEVICES"]="1"
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-n','--name', type=str,required= True)

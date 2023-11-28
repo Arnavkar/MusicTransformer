@@ -129,13 +129,13 @@ class TransformerDecoder(layers.Layer):
         return config
     
 def createBaselineTransformer(p:Params):
-    encoder_inputs = keras.Input(shape=(None,), dtype="int64", name="encoder_inputs")
+    encoder_inputs = keras.Input(shape=(None,), dtype="uint16", name="encoder_inputs")
     print("encoder inputs shape: ", encoder_inputs.shape)
     x = PositionalEmbedding(p.encoder_seq_len, p.encoder_vocab_size, p.model_dim)(encoder_inputs)
     encoder_outputs = TransformerEncoder(p)(x)
     encoder = keras.Model(encoder_inputs, encoder_outputs)
 
-    decoder_inputs = keras.Input(shape=(None,), dtype="int64", name="decoder_inputs")
+    decoder_inputs = keras.Input(shape=(None,), dtype="uint16", name="decoder_inputs")
     encoded_seq_inputs = keras.Input(shape=(None, p.model_dim), name="decoder_state_inputs")
 
     x = PositionalEmbedding(p.decoder_seq_len, p.decoder_vocab_size, p.model_dim)(decoder_inputs)

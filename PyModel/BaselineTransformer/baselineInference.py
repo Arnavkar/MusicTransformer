@@ -1,8 +1,7 @@
-from model import TransformerModel
 import tensorflow as tf
 from pickle import load
 from keras.preprocessing.sequence import pad_sequences
-from data.CustomDataset import CustomDataset
+from Dataset.SequenceDataset import SequenceDataset
 import numpy as np
 import argparse
 import json
@@ -13,7 +12,8 @@ from Transformer.utils import custom_loss
 from datetime import datetime
 from Transformer.LRSchedule import LRScheduler
 from .baselineModel import createBaselineTransformer
-import Dataset.testDataSet as test
+from Dataset.testDataSet import TestDataset
+import traceback
 
 
 class Improvisor(tf.Module):
@@ -24,7 +24,7 @@ class Improvisor(tf.Module):
     
     def __call__(self, input_sequence):
         encoder_input = pad_sequences(input_sequence, maxlen=self.params.encoder_seq_len, padding='post')
-        encoder_input = tf.convert_to_tensor(encoder_input, dtype=tf.int64)
+        encoder_input = tf.convert_to_tensor(encoder_input, dtype=tf.uint16)
 
         start_token = tf.convert_to_tensor([self.params.token_sos],dtype=tf.int64)
         decoder_output = tf.TensorArray(dtype=tf.int64, size=0, dynamic_size=True)
@@ -56,12 +56,14 @@ class Improvisor(tf.Module):
         return output
 
 if __name__ == '__main__':
-    os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
+    os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-n',"--model_name", type=str,required= True)
     parser.add_argument('-c','--checkpoint_type', type=str, required=True)
     args = parser.parse_args()
+
+    print(args)
 
     model_params = json.load(open('./models/' + args.model_name + '/params.json', 'rb'))
     p = Params(model_params)
@@ -96,22 +98,43 @@ if __name__ == '__main__':
     
     improvisor = Improvisor(model,p)
 
-    #=====================================================================
-    #Test with very simple sequences of midi notes - not yet midi encoded
-    #=====================================================================
+    # =====================================================================
+    # Test with very simple sequences of midi notes - not yet midi encoded
+    # =====================================================================
     # _ , _ ,  test_data = test.mockTfDataset(test.MAJOR_SCALE, 12)
+
+    # test_data = test_data.shuffle(len(test_data))
+    # test_data = test_data.batch(p.batch_size, drop_remainder=True)
+    # test_data = test_data.map(test.format_dataset)
+    
+    # for inputs, targets in test_data.take(1):
+    #     encoder_inputs = inputs["encoder_inputs"]
+    #     decoder_inputs = inputs["decoder_inputs"]
+    #     decoder_outputs = targets
+
+    # encoder_inputs = encoder_inputs.numpy()
+    # decoder_inputs = decoder_inputs.numpy()
+    # decoder_outputs = decoder_outputs.numpy()
+
     # for i in range(len(encoder_inputs)):
     #     print('encoderinput :{},\t decoder input:{},\t decoder output:{} \t, improvisor output:{} '.format(encoder_inputs[i],decoder_inputs[i],decoder_outputs[i],improvisor([encoder_inputs[i]])))
 
     #=====================================================================
     #Test with a single midi_encoded_file
     #=====================================================================
+    
+    #Grab test data from the same piece
+    # _,_,test_data = test.mockTfDataset_from_encoded_midi('./data/processed/MIDI-Unprocessed_01_R1_2008_01-04_ORIG_MID--AUDIO_01_R1_2008_wav--2.midi.pickle', p.encoder_seq_len)
 
-    _,_,test_data = test.mockTfDataset_from_encoded_midi('./data/processed/MIDI-Unprocessed_01_R1_2008_01-04_ORIG_MID--AUDIO_01_R1_2008_wav--2.midi.pickle', p.encoder_seq_len)
+    #Grab test data from another piece - same key
+    dataset = TestDataset(p, data_format='npy', min_event_length=p.encoder_seq_len*2, num_files_by_split={'train':5,'validation':1,'test':1})
+
+    test_data = dataset.mockTfDataset_from_encoded_midi_path('./data/processed_numpy/piano_test.mid.npy', 1)
+    print(len(test_data))
 
     test_data = test_data.shuffle(len(test_data))
     test_data = test_data.batch(p.batch_size, drop_remainder=True)
-    test_data = test_data.map(test.format_dataset)
+    test_data = test_data.map(dataset.format_dataset)
     
     for inputs, targets in test_data.take(1):
         encoder_inputs = inputs["encoder_inputs"]
@@ -126,7 +149,6 @@ if __name__ == '__main__':
         os.mkdir('./samples')
    
     try:
-        
         for i in range(5):
             time_recorded = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
             sample_path = './samples' + f'/{args.model_name}_{time_recorded}/'
@@ -138,7 +160,6 @@ if __name__ == '__main__':
             output_sequence = list(improvisor([encoder_inputs[i]]))
             #Strip start and end tokens
             output_sequence = output_sequence[1:-1]
-            print(output_sequence)
             decode_midi(output_sequence,file_path=sample_path + 'output.midi')
             print('output.mid written')
 
@@ -146,7 +167,10 @@ if __name__ == '__main__':
             decode_midi(decoder_outputs[i][:-1],file_path=sample_path + 'actual.midi')
             print('actual.mid written')
 
-    except Exception as e:
+    except Exception as ex:
         os.rmdir(sample_path)
-        print(e)
+        print(ex)
+        tb = ''.join(traceback.format_exception(etype=type(ex), value=ex, tb=ex.__traceback__))
+        print(traceback)
+        
     print("Inference complete")
