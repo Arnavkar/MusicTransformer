@@ -5,37 +5,28 @@ import numpy as np
 import pickle
 from Transformer.params import midi_test_params_v2, Params
 import json
+from time import time
+import tensorflow as tf
 
-#==================================================================
-#Custom Dataset 
-# 
-# Subclasses Keras Sequence object, must implement __getitem__ and __len__ methods ?
-# __getitem__ returns a batch of data, where the batch size is the first dimension of the resturned array
-# __len__ returns the number of batches in the sequence
-#==================================================================
 class BaseDataset():
-    def __init__(self, p:Params, mode, path="./data/processed",
+    def __init__(self, p:Params,
+                path="./data/processed",
+                data_format="pickle",
                 min_duration=None,
                 min_event_length=None,
-                num_files_to_use=None,
                 logger = None):
         
-
         self.logger = logger
+        self.data_format = data_format
+        # if self.data_format == 'npy':
+        #     path += "_numpy"
+
         self.maestroJSON = self.get_maestroJSON()
         self.fileDict = self.get_encoded_files(path,min_duration,min_event_length)
-        self.mode = mode
-        self.data = []
-        self.complete_files = []
         self.params = p
-        self.num_files_to_use = num_files_to_use
-        self.retrieve_files_by_maestro_split()
         
         random.seed(self.params.seed)
-        random.shuffle(self.data)
 
-        if num_files_to_use is not None:
-            self.data = self.data[0:num_files_to_use]
 
     def get_maestroJSON(self, path="./data/raw/maestro-v3.0.0.json"):
         with open(path) as f:
@@ -47,7 +38,7 @@ class BaseDataset():
             os.mkdir(path)
 
         #strip the year from the midi filename path, add .pickle to the end and add to base path
-        lambda_func = lambda x: os.path.join(path, x.split('/')[-1] +'.pickle')
+        lambda_func = lambda x: os.path.join(path, x.split('/')[-1] +'.' + 'pickle')
 
         #From the json files, get the indexed midi filenames
         midi_filenames_from_json = { int(key) : lambda_func(value) for key, value in self.maestroJSON['midi_filename'].items()}
@@ -76,7 +67,10 @@ class BaseDataset():
             i = 0
             while i < len(midi_filenames_from_json):
                 with open(midi_filenames_from_json[i], 'rb') as f:
-                    data = pickle.load(f)
+                    if self.data_format == "pickle":
+                        data = pickle.load(f)
+                    else:
+                        data = np.load(f,allow_pickle=True)
                 if len(data) < min_event_length:
                     self.log_or_print(f"Removed file {midi_filenames_from_json[i]}, Length of is {len(data)}, which is less than {min_event_length}")
                     del midi_filenames_from_json[i]
@@ -84,11 +78,6 @@ class BaseDataset():
             self.log_or_print(f"Number of midi files remaining after removing files less than {min_event_length} events: {len(midi_filenames_from_json)}")
 
         return midi_filenames_from_json
-        
-    def retrieve_files_by_maestro_split(self):
-        for i in self.fileDict.keys():
-            if self.maestroJSON['split'][f'{i}'] == self.mode:
-                self.data.append(self.fileDict[i])
     
     def log_or_print(self,log_str,isWarning=False):
         if self.logger:
@@ -98,11 +87,16 @@ class BaseDataset():
                 self.logger.info(log_str)
         else:
             print(log_str)
-        
-    def __repr__(self):
-        return "<Dataset_{} class has {} files>".format(self.mode, str(len(self.data)))
     
-
+    def format_dataset(self,x, y):
+        return (
+            {
+                "encoder_inputs": x,
+                "decoder_inputs": y[:, :-1],
+            },
+            y[:, 1:],
+        )
+    
     #Construct a tf dataset directly from the midi files - loads everything into memory                
     # def construct_tf_dataset(self,mode,seq_len,stride = 1,for_baseline=False,num_files=None):
     #     current_file_index = 0
@@ -177,7 +171,22 @@ class BaseDataset():
     #     return path
 
 if __name__ == "__main__":
-    pass
+    #============================================================================================
+    #Testing creating base dataset - testing speed of np files vs lists
+    #============================================================================================
+    p = Params(midi_test_params_v2)
+
+    start = time()
+    dataset = BaseDataset(p, data_format='npy', min_event_length=p.encoder_seq_len*2)
+    end = time()
+    print(f"Time taken to create dataset with npy format: {end-start}")  
+
+    start = time()
+    dataset = BaseDataset(p, data_format='pickle', min_event_length=p.encoder_seq_len*2)
+    end = time()
+    print(f"Time taken to create dataset with pickle format: {end-start}")
+
+    
     # num_train_files = len(data.model_data['train'])
     # print(f"Number of Train files: {num_train_files}")
     # num_batches_generated = 0

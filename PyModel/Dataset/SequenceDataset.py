@@ -12,18 +12,35 @@ class FileData():
         self.current_note_index = 0
 
 class SequenceDataset(BaseDataset,tf.keras.utils.Sequence):
-    def __init__(self, p:Params, mode,min_duration=None,min_event_length=None,num_files_to_use=None,logger=None):
+    def __init__(self, p:Params, mode, min_duration=None,min_event_length=None,num_files_to_use=None,logger=None):
         super().__init__(
             p=p, 
-            mode=mode, 
             min_duration=min_duration, 
             min_event_length=min_event_length, 
-            num_files_to_use=num_files_to_use, 
             logger=logger)
+        
+        self.data = []
+        self.complete_files = []
+        self.num_files_to_use = num_files_to_use
+        self.mode = mode
+        self.retrieve_files_by_maestro_split()
         self.convert_all_to_FileData()
+
+        random.shuffle(self.data)
+
+        if num_files_to_use is not None:
+            self.data = self.data[0:num_files_to_use]
         
     def __len__(self):
         return self.calculate_num_batches(self.params.encoder_seq_len, 1)
+    
+    def retrieve_files_by_maestro_split(self):
+        if self.mode not in ["train", "validation", "test"]:
+            raise Exception(f"Invalid mode passed: {self.mode}")
+
+        for i in self.fileDict.keys():
+            if self.maestroJSON['split'][f'{i}'] == self.mode:
+                self.data.append(self.fileDict[i])
     
     def __getitem__(self, idx):
         x,y = self.seq2seq_batch(self.params.batch_size, self.params.encoder_seq_len)
@@ -80,7 +97,7 @@ class SequenceDataset(BaseDataset,tf.keras.utils.Sequence):
         if file_data not in self.complete_files:
             self.complete_files.append(file_data)
         else:
-            self.lof_or_print("File{file_data.path} already in complete_files list", isWarning=True)
+            self.log_or_print("File{file_data.path} already in complete_files list", isWarning=True)
         
         try:
             self.data.remove(file_data)
@@ -127,6 +144,9 @@ class SequenceDataset(BaseDataset,tf.keras.utils.Sequence):
         for file in self.data:
             file.current_note_index = 0
         random.shuffle(self.data)
+
+    def __repr__(self):
+        return "<SequenceDataset_{} has {} files>".format(self.mode, len(self.data))
 
 if __name__ == "__main__":
     p = Params(midi_test_params_v2)
