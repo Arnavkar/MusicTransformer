@@ -14,6 +14,7 @@ from Transformer.LRSchedule import LRScheduler
 from .baselineModel import createBaselineTransformer
 from Dataset.testDataSet import TestDataset
 import traceback
+import sys
 
 
 class Improvisor(tf.Module):
@@ -127,10 +128,8 @@ if __name__ == '__main__':
     # _,_,test_data = test.mockTfDataset_from_encoded_midi('./data/processed/MIDI-Unprocessed_01_R1_2008_01-04_ORIG_MID--AUDIO_01_R1_2008_wav--2.midi.pickle', p.encoder_seq_len)
 
     #Grab test data from another piece - same key
-    dataset = TestDataset(p, data_format='npy', min_event_length=p.encoder_seq_len*2, num_files_by_split={'train':5,'validation':1,'test':1})
-
-    test_data = dataset.mockTfDataset_from_encoded_midi_path('./data/processed_numpy/piano_test.mid.npy', 1)
-    print(len(test_data))
+    dataset = TestDataset(p, data_format='npy', min_event_length=p.encoder_seq_len*2, num_files_by_split={'train':80,'validation':10,'test':10})
+    _, _, test_data = dataset.mockTfDataset_from_encoded_midi(3)
 
     test_data = test_data.shuffle(len(test_data))
     test_data = test_data.batch(p.batch_size, drop_remainder=True)
@@ -152,20 +151,28 @@ if __name__ == '__main__':
         for i in range(5):
             time_recorded = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
             sample_path = './samples' + f'/{args.model_name}_{time_recorded}/'
-        
             os.mkdir(sample_path)
-            decode_midi(encoder_inputs[i],file_path=sample_path + 'input.midi')
+
+            inputs = list(encoder_inputs[i])
+            #Strip only end token
+            targets = list(decoder_outputs[i][:-1])
+            # Strip start and end tokens
+            model_output = list(improvisor([encoder_inputs[i]]))[1:-1]
+            
+            actual_stitched =  inputs + targets
+            output_stitched = inputs + model_output
+            
+            #Write to files
+            decode_midi(inputs,file_path=sample_path + 'input.midi')
             print('input.mid written')
-
-            output_sequence = list(improvisor([encoder_inputs[i]]))
-            #Strip start and end tokens
-            output_sequence = output_sequence[1:-1]
-            decode_midi(output_sequence,file_path=sample_path + 'output.midi')
-            print('output.mid written')
-
-            #strip end token
-            decode_midi(decoder_outputs[i][:-1],file_path=sample_path + 'actual.midi')
+            decode_midi(targets,file_path=sample_path + 'actual.midi')
             print('actual.mid written')
+            decode_midi(model_output,file_path=sample_path + 'output.midi')
+            print('output.mid written')
+            decode_midi(actual_stitched,file_path=sample_path + 'actual_stitched.midi')
+            print('actual_stitched.mid written')
+            decode_midi(output_stitched,file_path=sample_path + 'output_stitched.midi')
+            print('output_stitched.mid written')
 
     except Exception as ex:
         os.rmdir(sample_path)

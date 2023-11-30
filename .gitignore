@@ -14,3 +14,4 @@ models/
 data/
 logs/
 samples/
+nohup.out
