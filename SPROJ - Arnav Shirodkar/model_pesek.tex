@@ -1,0 +1,141 @@
+\documentclass[../main.tex]{subfiles}
+\graphicspath{{\subfix{../imgs/}}}
+\begin{document}
+\newpage
+\section{The Compositional Hierarchical Model}
+The model present here is strongly inspired by the LHOP model mentioned earlier \cite{Fidler:1}. Like the LHOP model, the model proposed by Pesek represents musical patterns in a hierarchical manner, structured in layers, built via compositions of parts on lower layers to form more complex ideas. It is crucial to note that the model proposed by Pesek is built on the assumption that a complex signal can be decomposed into a hierarchy of building blocks or \textit{parts}. Parts exist at various levels of granularity and represent sets of entities describing the signal.  Parts on higher layers are expressed as compositions of parts on lower layers, analogous to the fact that a chord is composed of several pitches, and each pitch of several harmonic partials. A part can therefore describe individual frequencies in a signal, their combinations, as well as pitches, chords and temporal patterns, such as melodic or chord progressions. The entire structure is transparent, giving us the ability to observe and interpret each part. 
+\subsection{Model Structure}
+\noindent
+The model consists of several layers, namely:
+\begin{itemize}
+    \item \textbf{$L_0$, the input layer (lowest layer)} — The input layer contains every ``input event" as an individual part, forming the basis of parts that can be drawn upon to build compositions of parts.
+    
+    \item \textbf{$\{L_1, ..., L_N\}$, compositional layers (higher layers)} — Each compositional layer $L_n$ contains a set of parts, where each part is a composition of parts from $L_{n-1}$. If $L_n$ is not the topmost layer, then a part from this layer may belong to composition on $L_{n+1}$. 
+\end{itemize}
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=1\textwidth]{imgs/model.png}
+    \caption{An abstraction representation of the model. Each color represents a different type of event in the input signal, and each layer includes a set of parts which are compositions of parts from previous layers.\cite{Pesek:1}}
+    \label{fig:fig2}
+\end{figure}
+
+\subsubsection{Input and the Input Layer}
+A key feature of the model proposed by Pesek is that it is \textit{generalizable}. Any musical representation can be used as input as long as it contains the following components: time, a specific location (Eg. frequency, pitch etc.) and magnitude. This flexible representation allows the model to be generalize to different domains (Eg. time-frequency-magnitude, time-pitch-magnitude). The input $X$ can be defined as a set of triplets as shown below:
+
+\[ \label{eq:1.1} X = \{X_t, X_l, X_m\} \tag{1.1}\]
+
+\vspace{0.5cm}
+The input layer, $L_0$, consists of a single part $P^0_0$ which represents all atomic events in the model input. This part activates for all input events, encoding time, location and magnitude. Depending on the task, these activations may represent different things (Eg. frequency components, note event, pairs of rhymhmic events). For my own version of the model that is intended to be used in a real-time context, the input layer is likely to be a growing set of input events, with newly processed audio event being added to the input layer first before they are considered as candidate parts for compositions on higher layers.
+
+
+\subsubsection{Compositional Layers}
+Every part $P^n_i$ ( where $P^n_i$ is a composition \textit{i} on layer \textit{n} of $K$ parts extracted from subparts on layer $L_{n-1}$) is defined as follows:
+
+{\large
+\begin{equation} \label{eq:1.2}
+P^n_i = \{P^{n-1}_{k_0}, \{P^{n-1}_{k_j},(\mu_j,\sigma_j)\}^{K-1}_{j=1}\}
+\tag{1.2}
+\end{equation}
+}
+
+\vspace{0.5cm}
+The parameters $\mu$ and $\sigma$ model relations between subparts via a gaussian distribution. These relations are relative, and define relative distances between the central subpart $P^{n-1}_{k_0}$ and all other subparts. The model is first constructed by unsupervised learning on a set of examples, such that learned parts and their parameters encode concepts learned from the examples. When new input is presented to the model, it calculates part activations to indicate that a learned concept has been detected within the input signal. 
+
+\vspace{0.5cm}
+Each calculated activation is a triplet of time, location and magnitude, $\{A_T, A_L, A_M\}$. Location maps the activated part such that we can derive an absolute value (eg. Pitch), given that each part is relatively encoded. Time represents the absolute time of the activation and magnitude represents the activation strength. Due to concepts being relatively encoded, a part can have simultaneous activation at different locations and/or times, indicating that a learned concept has been detected in several locations in the input signal. 
+
+\vspace{0.5cm}
+\noindent
+Included below are the mathematical definitions provided by Pesek, for how activations are calculated:
+
+{\large
+\begin{equation} \label{eq:1.3}
+A_L(P^n_i) = A_L(P^{n-1}_{k_0}) 
+\tag{1.3}
+\end{equation}
+
+\begin{equation} \label{eq:1.4}
+A_T(P^n_i) = A_T(P^{n-1}_{k_0})
+\tag{1.4}
+\end{equation}
+
+\begin{equation} \label{eq:1.5}
+A_M(P^n_i) = tanh( \frac{1}{k} \sum^{k-1}_{j=0} \omega_jA_M(P^{n-1}_{k_j}) )
+\tag{1.5}
+\end{equation}
+}
+
+\noindent
+From \ref{eq:1.3} and \ref{eq:1.4}, we can see that compositions propagate locations and times upwards through the hierarchy, allowing for a top-down analysis of all activations after learning has taken place. Furthermore, from \ref{eq:1.5}, we can see that $A_M$, the activation strength, is defined as the weighted sum of subpart magnitudes.
+
+{\large
+\begin{equation} \label{eq:1.6}
+\delta_{L_j}= A_L(P^{n-1}_{k_j}) - A_L(P^{n-1}_{k_0}) )
+\tag{1.6}
+\end{equation}
+
+\begin{equation} \label{eq:1.7}
+\delta_{T_j}= A_T(P^{n-1}_{k_j}) - A_T(P^{n-1}_{k_0}) )
+\tag{1.7}
+\end{equation}
+
+\begin{equation} \label{eq:1.8}
+\omega_j = \left\{\begin{array}{lr}
+    1: & j=0\\
+    N(\delta_j,\mu_j,\sigma_j): & \quad j > 0 \wedge \delta_{T_j} < T_W\\
+    0: & \delta_{T_j} \geq T_W
+    \end{array}\right
+    \tag{1.8}
+\end{equation}
+}
+
+\vspace{0.5cm}
+The weights $\omega_j$, as shown in \ref{eq:1.8}, are defined by the match between the learned and observed relative subpart activation locations, bounded by a difference in their activation. This is done in this manner such that the activation strength is higher for inputs which fit the relative subpart differences better (encoded by $\mu_j, \sigma_j$). $T_W$ represents the maximal possible difference between the activation times of two subparts such that an activation is still produced. This limit is imposed to prevent combinatorial explosion \cite{Pesek:1}, such that only subparts that are close enough are considered when calculating activations. This is intuitive to most music, as it makes sense to combine event nearby in time as a single pattern, rather than events that are far apart. While the onset time determines the presence of an activation, they are not related in anyway to activation magnitude. This is useful for modeling temporal signals with gaps between detected events. 
+
+\vspace{0.5cm}
+A key difference between my model and Pesek's model, will be how composed parts might change over time based on new real-time input provided to the model. For example take the scenario where a repeated three-note idea (eg. a major chord arpeggio) is learned and encoded in the model. If however, the input stream for audio suddenly changes key to the minor, we might expect the model to create a new three-note idea for minor chord arpeggios, and discard the composition that was previously created. Additional parameters can be used to determine when a composition may no longer be required, and is suitable to be discarded, making way for "new ideas" to take hold. Conversely, since parts are propagated through layers, it is important to consider how a discarded composition on one layer might affect other layers. 
+
+\subsection{Learning}
+\noindent
+The model is constructed layer-by-layer in an unsupervised manner, from the bottom up. At any given point in time, goal of learning at each level is to find a minimal set of compositions for the learned layer such that it explains the maximal amount of information present in the input data. The entire process is driven by the statistical analysis of part activations to capture patterns in the input data. For the purpose of this paper, I will only briefly go over how learning takes place in Pesek's model, since the learning algorithm for the real-time model is likely to have major differences. 
+
+\vspace{0.5cm}
+Pesek defines the coverage, $C$, of a part activation as the set of input events from $L_0$ which cause said part activation, as shown in \ref{eq:2.1}. Note that this can be quickly obtained, because the location of parts are propagated upward through each layer. The coverage of an entire layer ,$L_N$, is the set of all events in the input data covered by all parts of the layer, as shown in \ref{eq:2.2}
+
+{\large
+\begin{equation} \label{eq:2.1}
+C(A(P^n_i)) = \bigcup^{K-1}_{j=0} C(A(P^{n-1}_{k_j}))
+\tag{2.1}
+\end{equation}
+
+\begin{equation} \label{eq:2.2}
+C(L_N) = \bigcup_{P^n_i \in L_n} C(A(P^{n}_{i}))
+\tag{2.2}
+\end{equation}
+}
+
+Minimize the amount of uncovered events whilst limiting the number of parts added to the layer is an optimal coverage problem, which is NP-complete \cite{Pesek:1}. Pesek chooses to approximate the solution using a greedy algorithm to incrementally add compositions to the new layer. To summarise the algorithms briefly\footnote{The pseudocode for these algorithms are provided at the end of the paper}:
+\begin{itemize}
+    \item Perform inference on training set up to $L_n-1$. 
+    \item Observe co-occurrences of $L_n-1$ part activations over the entire training set (these indicate parts that activate together frequently)
+    \item Generate all Candidate Compositions by repeatedly picking the peak from a histogram of co-occurrence magnitudes, ensuring that the number of co-occurrences for each pair of parts is greater than the learning threshold $T_L$
+    \item Calculate the coverage of each candidate composition
+    \item Iteratively add candidates to the new layer $L_N$ by choosing a composition that maximally increases the coverage on the training set.
+    \item Stop when added coverage falls below threshold $T_C$ or the overall threshold is reached, $T_p$
+\end{itemize} 
+
+\subsection{Inference}
+When the trained model is presented with new input data, it must locate the learned concepts within the input signal. To do this, the model calculates part activations in the input via \textit{inference}, calculating activations from the bottom up while the input directly activates $L_0$. Pesek adds two interesting features that allow inference to be approximated rather than exact: 
+\begin{itemize}
+    \item \textbf{Hallucination} — relaxes the condition that a part is activated only if all of its subparts activate. This allows the model to produce activations even in the case of missing input, where missing fragments are extrapolated or ``hallucinated". With hallucination, a part activates when the percentage of events in the input signal detected exceeds a hallucination threshold.
+    
+    \item \textbf{Inhibition} — provides a balancing factor in the model by reducing redundant part activations, similar to lateral inhibition in the human auditory system %cite Pesek 154.
+    A part $P^n_i$ is removed or inhibited when one or multiple other parts already cover most of the events covered by $P^n_i$, with a larger magnitude.
+\end{itemize}
+
+Together, these features increase the model's robustness and ability to find learned concepts even when the input data is noisy, or the input contains added/deleted events. 
+
+\subsection{Additional Thoughts}
+As mentioned by Pesek, the model's architectures has two distinct features that set it apart from other similar architectures \cite{Pesek:1}. First, the relativity of parts enables a part to represent an abstract high-level concept regardless of it's position in the signal. This is also true in human perception, allowing us to use minimal information to explain and predict our environment maximally. Secondly, the relativity of parts enables parts to be shared, where a part on layer $L_{N-1}$ may be present in many separate compositions on layer $L_N$. Together, these facts allow the model to efficiently encode complex concepts. 
+
+\end{document}

@@ -1,0 +1,88 @@
+\documentclass[../main.tex]{subfiles}
+\graphicspath{{\subfix{../imgs/}}}
+\begin{document}
+\newpage
+\section{Algorithm Pseudocode}
+Sourced from \cite{Pesek:1}
+
+\begin{algorithm}[ht]
+\caption{Procedure to Generate Candidate Compositions}\label{alg:1.2.1}
+\begin{algorithmic}[1]
+\Procedure {$getCandidateCompositions$}{$L_N$}
+\State {$Compositions \gets \{\}$}
+\State {$Hist \gets array(n)$}
+\For {$P_1, P_2 \in L_{N-1}$}
+    \For {$Act_1 \in P_1$}
+        \For {$Act_2 \in P_2$}
+            \If {$withinWindow(Act_1,Act_2)$}
+                \State $location \gets Act_2[A_L] - Act_1[A_L]$
+                \State $Hist[location] \gets Hist[location] + Act_2[A_M] + Act_1[A_M]$
+            \EndIf
+        \EndFor
+    \EndFor 
+    \State {$peakValue \gets pickPeak(Hist, T_L)$}
+    \While {$peakValue \neq NULL$}
+        \State {$Compositions \gets Compositions \cup newPart(P_1,P_2)$}
+        \State {$removeFromHist(Hist,peakValue)$}
+        \State {$peakValue \gets pickPeak(Hist, T_L)$}
+    \EndWhile
+\EndFor \\
+\Return $Compositions$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[ht]
+\caption{Procedure to Select Candidate Compositions}\label{alg:1.2.2}
+\begin{algorithmic}[1]
+\Procedure {$createNewLayer$}{$Compositions$}
+\State {$prevCov \gets 0$}
+\State {$cov \gets emptyArray()$}
+\State {$L_N \gets NULL$}
+\State {$Hist \gets array(n)$}
+\While {$prevCov < T_p \quad||\quad Compositions == NULL$}
+    \For {$P \in Compositions$}
+        \State {$cov[P] \gets coverage(L_N \cup P)$}
+    \EndFor
+    \State {$Choice \gets argmax(cov)$}
+    \State {$L_N \gets L_N \cup Choice$}
+    \State {$Compositions \gets removeFromSet(Compositions,Choice)$}
+    \If{$cov[Choice] - prevCov < T_c$} 
+        \State{Break}
+    \Else
+        \State {$prevCov \gets cov[Choice]$}
+    \EndIf
+\EndWhile \\
+\Return $L_N$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[ht]
+\caption{Procedure for Inference on Input Data}\label{alg:1.2.3}
+\begin{algorithmic}[1]
+\Procedure {$Inference$}{$L_N$}
+\State {$Activations \gets NULL$}
+\For {$P \in L_N $}
+    \State {$(P^{n-1}_0,P^{n-1}_1,\mu,\sigma) \gets P$}
+    \For {$Act_0 \in P^{n-1}_0$}
+        \For {$Act_1 \in P^{n-1}_1$}
+            \If {$isWithin(Act_0,Act_1,\mu,\sigma)$}
+                \State {$A \gets newActivation()$}
+                \State {$A[A_L] \gets Act_0[A_L]$}
+                \State {$A[A_T] \gets Act_0[A_T]$}
+                \State {$A[A_M] \gets calcMagnitude(Act_0,Act_1,\mu,\sigma)$}
+                \If {$canHallucinate(P,A,T_H)$}
+                    \State {$addActivation(Activations,A)$}
+                \EndIf
+            \EndIf
+        \EndFor
+    \EndFor
+\EndFor
+\State {$inhibit(Activations,T_i)$}\\
+\Return {$Activations$}
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\end{document}
