@@ -14,7 +14,7 @@ import os
 import traceback
 
 if __name__ == "__main__":
-    os.environ["CUDA_VISIBLE_DEVICES"]="1"
+    # os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
     #handle all command line arguments and parsing
     parser = argparse.ArgumentParser()
     parser.add_argument('-n','--name', type=str,required= True)

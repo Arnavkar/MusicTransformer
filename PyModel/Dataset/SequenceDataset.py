@@ -62,7 +62,7 @@ class SequenceDataset(BaseDataset,tf.keras.utils.Sequence):
 
         #select k files from the list of files - allows us to grab a batch from the same file multiple times
         for _ in range(batch_size):
-            if len(self.data == 0):
+            if len(self.data)==0:
                 self.reset()
             file = (random.choice(self.data))
             data.append(self.extract_sequence_v2(file, length))
