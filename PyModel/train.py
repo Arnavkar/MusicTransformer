@@ -1,6 +1,6 @@
 from data.CustomDataset import CustomDataset
 from tensorflow.keras.metrics import Mean
-from model import TransformerModel
+from Transformer.model import TransformerModel
 from time import time
 import tensorflow as tf
 from Transformer.params import midi_test_params_v2, Params

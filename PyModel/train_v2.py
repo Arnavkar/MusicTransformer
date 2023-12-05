@@ -1,7 +1,7 @@
 from Dataset.SequenceDataset import SequenceDataset
 from Dataset.testDataSet import TestDataset
 from tensorflow.keras.metrics import Mean
-from model import TransformerModel
+from Transformer.model import TransformerModel
 from time import time
 import tensorflow as tf
 from Transformer.utils import custom_loss, custom_accuracy

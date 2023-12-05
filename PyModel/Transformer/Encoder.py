@@ -60,7 +60,6 @@ class Encoder(Layer):
         self.num_encoder_layers = p.num_encoder_layers
 
         self.positional_encoding = PositionEmbeddingFixedWeights(self.encoder_seq_len, self.encoder_vocab_size, self.model_dim)
-        self.dropout = Dropout(self.dropout_rate)
         self.encoder_layers = [EncoderLayer(p) for _ in range(self.num_encoder_layers)]
 
     def get_config(self):
@@ -78,7 +77,6 @@ class Encoder(Layer):
     
     def call(self, x, padding_mask, training):
         positional_encoding_output = self.positional_encoding(x)
-        positional_encoding_output = self.dropout(positional_encoding_output, training=training)
 
         for layer in self.encoder_layers:
             output = layer(

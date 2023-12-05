@@ -62,6 +62,8 @@ class SequenceDataset(BaseDataset,tf.keras.utils.Sequence):
 
         #select k files from the list of files - allows us to grab a batch from the same file multiple times
         for _ in range(batch_size):
+            if len(self.data == 0):
+                self.reset()
             file = (random.choice(self.data))
             data.append(self.extract_sequence_v2(file, length))
 
@@ -137,8 +139,8 @@ class SequenceDataset(BaseDataset,tf.keras.utils.Sequence):
         return num_batches
     
     #Reset all indices
-    def on_epoch_end(self):
-        self.log_or_print("Epoch ended, resetting fileData objects")
+    def reset(self):
+        self.log_or_print("Reset Called, resetting fileData objects")
         self.data += self.complete_files
         self.complete_files = []
         for file in self.data:

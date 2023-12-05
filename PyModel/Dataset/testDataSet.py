@@ -164,32 +164,6 @@ class TestDataset(BaseDataset):
         dataset = tf.data.Dataset.from_tensor_slices((x, y))
 
         return dataset
-
-
-    # def mockTfDataset_from_encoded_midi_np(self,stride=1):
-    #     random.seed(42)
-    #     all_sequences = []
-    #     for path in self.data:
-    #         with open(path, 'rb') as f:
-    #             event_sequence = pickle.load(f)
-    #         all_sequences = self.rolling_window_np([event_sequence], p.encoder_seq_len*2,stride)
-
-    #         random.shuffle(all_sequences)
-    #     x, y = [], []
-    #     for seq in all_sequences:
-    #         x.append(seq[:seq_len])
-    #         y.append([1] + seq[seq_len:] + [2])
-
-    #     split_1 = int(0.8*len(x))
-    #     split_2 = int(0.9*len(x))
-
-    #     train_x , val_x, test_x = x[0:split_1], x[split_1:split_2], x[split_2:]
-    #     train_y , val_y, test_y = y[0:split_1], y[split_1:split_2], y[split_2:]
-        
-    #     train = tf.data.Dataset.from_tensor_slices((train_x, train_y))
-    #     val = tf.data.Dataset.from_tensor_slices((val_x, val_y))
-    #     test = tf.data.Dataset.from_tensor_slices((test_x, test_y))
-    #     return train,val,test
     
     def retrieve_files_by_maestro_split(self):
         for i in self.fileDict.keys():
@@ -204,7 +178,6 @@ class TestDataset(BaseDataset):
         
     def __repr__(self) -> str:
         return "<TestDataset has {} files for training, {} files for validation, {} files for testing>".format(len(self.data['train']),len(self.data['validation']),len(self.data['test']))
-
 
 
 if __name__ == '__main__':

@@ -13,4 +13,6 @@ class ExampleData():
         self.end_idx = end_idx
 
 class MappedDataset(BaseDataset):
-    pass
+    
+    for i in range(len(sequence) - window_size + 1):
+        yield sequence[i:i + window_size]

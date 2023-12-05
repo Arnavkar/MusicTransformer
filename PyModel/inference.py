@@ -1,4 +1,4 @@
-from model import TransformerModel
+from Transformer.model import TransformerModel
 import tensorflow as tf
 from pickle import load
 from keras.preprocessing.sequence import pad_sequences
