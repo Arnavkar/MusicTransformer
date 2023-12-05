@@ -41,34 +41,34 @@ if __name__ == "__main__":
     # ====================================================================
     # Using in-memory dataset with TestDataset
     # ====================================================================
-    dataset = TestDataset(p, data_format='npy', min_event_length=p.encoder_seq_len*2, num_files_by_split={'train':5,'validation':1,'test':1})
+    # dataset = TestDataset(p, data_format='npy', min_event_length=p.encoder_seq_len*2)
 
     # train, val, _ = dataset.mockTfDataset_from_encoded_midi(3)
     # # #Shuffle and Batch data - map for the baseline transformer model
 
-    train = dataset.mockTfDataset_from_encoded_midi_path('./data/processed_numpy/piano_train.mid.npy', 1)
-    val = dataset.mockTfDataset_from_encoded_midi_path('./data/processed_numpy/piano_test.mid.npy', 1)
+    # train = dataset.mockTfDataset_from_encoded_midi_path('./data/processed_numpy/piano_train.mid.npy', 1)
+    # val = dataset.mockTfDataset_from_encoded_midi_path('./data/processed_numpy/piano_test.mid.npy', 1)
 
-    train = train.shuffle(len(train))
-    train = train.batch(p.batch_size, drop_remainder=True)
-    train = train.map(dataset.format_dataset)
+    # train = train.shuffle(len(train))
+    # train = train.batch(p.batch_size, drop_remainder=True)
+    # train = train.map(dataset.format_dataset)
 
-    val = val.shuffle(len(val))
-    val = val.batch(p.batch_size, drop_remainder=True)
-    val = val.map(dataset.format_dataset)
+    # val = val.shuffle(len(val))
+    # val = val.batch(p.batch_size, drop_remainder=True)
+    # val = val.map(dataset.format_dataset)
 
     
 
     #====================================================================
     # Custom dataset class instantiation for train and val
     #====================================================================
-    # train = SequenceDataset(p, 'train', min_event_length=p.encoder_seq_len*2,logger=logger,num_files_to_use=2)
+    train = SequenceDataset(p, 'train', min_event_length=p.encoder_seq_len*2,logger=logger)
     # # val = SequenceDataset(p, 'val', min_event_length=p.encoder_seq_len*2,logger=logger,num_files_to_use=1)
 
-    # if train.num_files_to_use != None:
-    #     logger.info(f"Using only {train.num_files_to_use} files for training")
-    #     for file in train.data:
-    #         logger.info(f"Using file:{file.path}")
+    if train.num_files_to_use != None:
+        logger.info(f"Using only {train.num_files_to_use} files for training")
+        for file in train.data:
+            logger.info(f"Using file:{file.path}")
     
     #====================================================================
     #Callbacks and Optimizer Set up
@@ -118,7 +118,6 @@ if __name__ == "__main__":
         history = model.fit(
             train, 
             epochs = p.epochs,
-            validation_data = val,
             callbacks = [model_checkpoint, tensorboard]
         )
         logger.info("Training Complete! Total time taken: %.2fs" % (time() - start_time))  

@@ -41,6 +41,7 @@ def createBaselineTransformer(p:Params):
     x = PositionalEmbedding(p.encoder_seq_len, p.encoder_vocab_size, p.model_dim)(encoder_inputs)
     encoder_outputs = TransformerEncoder(p)(x)
     encoder = keras.Model(encoder_inputs, encoder_outputs)
+    encoder.summary()
 
     decoder_inputs = keras.Input(shape=(None,), dtype="uint16", name="decoder_inputs")
     encoded_seq_inputs = keras.Input(shape=(None, p.model_dim), name="decoder_state_inputs")
@@ -49,6 +50,7 @@ def createBaselineTransformer(p:Params):
     x = TransformerDecoder(p)(x, encoded_seq_inputs)
     decoder_outputs = layers.Dense(p.decoder_vocab_size, activation="softmax")(x)
     decoder = keras.Model([decoder_inputs, encoded_seq_inputs], decoder_outputs)
+    decoder.summary()
 
     decoder_outputs = decoder([decoder_inputs, encoder_outputs])
     transformer = keras.Model(

@@ -54,8 +54,8 @@ class TransformerEncoder(tf.keras.layers.Layer):
 
     def call(self, inputs, mask=None):
         for i in range(self.num_encoder_layers):
-            x = self.enc_layers[i](x, mask=mask)
-        return x
+            inputs = self.enc_layers[i](inputs, mask=mask)
+        return inputs
 
     def get_config(self):
         config = super().get_config()

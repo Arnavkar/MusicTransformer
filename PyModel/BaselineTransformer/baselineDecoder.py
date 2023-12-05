@@ -32,7 +32,6 @@ class TransformerDecoderLayer(layers.Layer):
         self.dropout2 = layers.Dropout(p.dropout_rate)
         self.dropout3 = layers.Dropout(p.dropout_rate)
 
-
         self.add = layers.Add()  # instead of `+` to preserve mask
         self.supports_masking = True
 
@@ -72,11 +71,10 @@ class TransformerDecoder(tf.keras.layers.Layer):
         self.num_decoder_layers = p.num_decoder_layers
         self.dec_layers = [TransformerDecoderLayer(p) for _ in range(self.num_decoder_layers)]
 
-    def call(self, inputs, mask=None):
-        decoder_inputs, encoded_seq_inputs = inputs[0],inputs[1]
+    def call(self, decoder_inputs, encoded_seq_inputs, mask=None):
         for i in range(self.num_decoder_layers):
-            x = self.dec_layers[i](decoder_inputs, encoded_seq_inputs, mask=mask)
-        return x
+            decoder_inputs = self.dec_layers[i](decoder_inputs, encoded_seq_inputs, mask=mask)
+        return decoder_inputs
 
     def get_config(self):
         config = super().get_config()
