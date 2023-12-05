@@ -113,26 +113,26 @@ if __name__ == "__main__":
     #Train model and save history
     #====================================================================
 
-        start_time = time()
-        try:
-            logger.info("Training model...")
-            history = model.fit(
-                train, 
-                epochs = p.epochs,
-                callbacks = [model_checkpoint, tensorboard],
-                steps_per_epoch=20000
-            )
-            logger.info("Training Complete! Total time taken: %.2fs" % (time() - start_time))  
-            logger.info("Saving History...")
-            with open(base_path+'history.json', 'w') as file:
-                json.dump(history.history,file)
-            logger.info("History Saved!") 
-        except KeyboardInterrupt as ex:
-            logger.error(f"KeyBoard Interrupt Occurred")
-            tb = ''.join(traceback.format_exception(etype=type(ex), value=ex, tb=ex.__traceback__))
-            logger.error(tb)
-        except Exception as ex:
-            logger.error(f"Unexpected Exception Occurred")
-            tb = ''.join(traceback.format_exception(etype=type(ex), value=ex, tb=ex.__traceback__))
-            logger.error(tb)
+    start_time = time()
+    try:
+        logger.info("Training model...")
+        history = model.fit(
+            train, 
+            epochs = p.epochs,
+            callbacks = [model_checkpoint, tensorboard],
+            steps_per_epoch=20000
+        )
+        logger.info("Training Complete! Total time taken: %.2fs" % (time() - start_time))  
+        logger.info("Saving History...")
+        with open(base_path+'history.json', 'w') as file:
+            json.dump(history.history,file)
+        logger.info("History Saved!") 
+    except KeyboardInterrupt as ex:
+        logger.error(f"KeyBoard Interrupt Occurred")
+        tb = ''.join(traceback.format_exception(etype=type(ex), value=ex, tb=ex.__traceback__))
+        logger.error(tb)
+    except Exception as ex:
+        logger.error(f"Unexpected Exception Occurred")
+        tb = ''.join(traceback.format_exception(etype=type(ex), value=ex, tb=ex.__traceback__))
+        logger.error(tb)
         
