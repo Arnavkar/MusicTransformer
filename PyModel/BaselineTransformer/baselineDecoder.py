@@ -80,10 +80,7 @@ class TransformerDecoder(tf.keras.layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "embed_dim": self.embed_dim,
-                "dense_dim": self.dense_dim,
-                "num_heads": self.num_heads,
-                "num_layers": self.num_layers,
+                "num_decoder_layes": self.num_decoder_layers
             }
         )
         return config

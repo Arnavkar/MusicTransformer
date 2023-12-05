@@ -61,10 +61,7 @@ class TransformerEncoder(tf.keras.layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "embed_dim": self.embed_dim,
-                "dense_dim": self.dense_dim,
-                "num_heads": self.num_heads,
-                "num_layers": self.num_layers,
+                "num_encoder_layers": self.num_encoder_layers,
             }
         )
         return config

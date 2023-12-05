@@ -96,41 +96,43 @@ if __name__ == "__main__":
     #====================================================================
     #Model Set up
     #====================================================================
+    strategy = tf.distribute.MirroredStrategy()
+    with strategy.scope():
+        optimizer = tf.keras.optimizers.Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
 
-    optimizer = tf.keras.optimizers.Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
-
-    #Choose between custom transformer vs baseline transformer
-    if args.with_baseline:
-        logger.info("Creating baseline transformer...")
-        model = createBaselineTransformer(p)
-        model.compile(optimizer = optimizer, loss=custom_loss, metrics=[custom_accuracy])
-    else:
-        model = TransformerModel(p)
-        model.compile(optimizer = optimizer, loss_fn = custom_loss, accuracy_fn=custom_accuracy)
+        #Choose between custom transformer vs baseline transformer
+        if args.with_baseline:
+            logger.info("Creating baseline transformer...")
+            model = createBaselineTransformer(p)
+            model.compile(optimizer = optimizer, loss=custom_loss, metrics=[custom_accuracy])
+        else:
+            model = TransformerModel(p)
+            model.compile(optimizer = optimizer, loss_fn = custom_loss, accuracy_fn=custom_accuracy)
 
     #====================================================================
     #Train model and save history
     #====================================================================
 
-    start_time = time()
-    try:
-        logger.info("Training model...")
-        history = model.fit(
-            train, 
-            epochs = p.epochs,
-            callbacks = [model_checkpoint, tensorboard]
-        )
-        logger.info("Training Complete! Total time taken: %.2fs" % (time() - start_time))  
-        logger.info("Saving History...")
-        with open(base_path+'history.json', 'w') as file:
-            json.dump(history.history,file)
-        logger.info("History Saved!") 
-    except KeyboardInterrupt as ex:
-        logger.error(f"KeyBoard Interrupt Occurred")
-        tb = ''.join(traceback.format_exception(etype=type(ex), value=ex, tb=ex.__traceback__))
-        logger.error(tb)
-    except Exception as ex:
-        logger.error(f"Unexpected Exception Occurred")
-        tb = ''.join(traceback.format_exception(etype=type(ex), value=ex, tb=ex.__traceback__))
-        logger.error(tb)
+        start_time = time()
+        try:
+            logger.info("Training model...")
+            history = model.fit(
+                train, 
+                epochs = p.epochs,
+                callbacks = [model_checkpoint, tensorboard],
+                steps_per_epoch=20000
+            )
+            logger.info("Training Complete! Total time taken: %.2fs" % (time() - start_time))  
+            logger.info("Saving History...")
+            with open(base_path+'history.json', 'w') as file:
+                json.dump(history.history,file)
+            logger.info("History Saved!") 
+        except KeyboardInterrupt as ex:
+            logger.error(f"KeyBoard Interrupt Occurred")
+            tb = ''.join(traceback.format_exception(etype=type(ex), value=ex, tb=ex.__traceback__))
+            logger.error(tb)
+        except Exception as ex:
+            logger.error(f"Unexpected Exception Occurred")
+            tb = ''.join(traceback.format_exception(etype=type(ex), value=ex, tb=ex.__traceback__))
+            logger.error(tb)
         
