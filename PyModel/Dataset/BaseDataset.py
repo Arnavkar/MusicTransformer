@@ -6,7 +6,6 @@ import pickle
 from Transformer.params import midi_test_params_v2, Params
 import json
 from time import time
-import tensorflow as tf
 
 class BaseDataset():
     def __init__(self, p:Params,

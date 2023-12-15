@@ -78,14 +78,14 @@ midi_test_params_v2 = {
     "beta_1":0.9,
     "beta_2":0.98,
     "epsilon":1e-8,
-    "encoder_seq_len": 512,
-    "decoder_seq_len": 512,
-    "max_seq_len":512,
+    "encoder_seq_len": 1042,
+    "decoder_seq_len": 1044,
+    "max_seq_len":1044,
     "pad_token" : 0,
     "token_sos" : 1,
     "token_eos" : 2,
     "debug":True,
-    "steps_per_epoch": 500,
+    "steps_per_epoch": 1000,
     "save_freq": 10,
     "seed":236, #Random seed for reproduceable results
 }

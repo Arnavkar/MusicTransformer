@@ -37,24 +37,25 @@ class PositionalEmbedding(layers.Layer):
         return config
     
 def createBaselineTransformer(p:Params):
-    encoder_inputs = keras.Input(shape=(None,), dtype="uint16", name="encoder_inputs")
+    encoder_inputs = keras.Input(shape=(None,), dtype="int64", name="encoder_inputs")
     x = PositionalEmbedding(p.encoder_seq_len, p.encoder_vocab_size, p.model_dim)(encoder_inputs)
-    encoder_outputs = TransformerEncoder(p)(x)
+    for _ in range(p.num_encoder_layers):
+        x = TransformerEncoder(p)(x)
+    encoder_outputs = x
     encoder = keras.Model(encoder_inputs, encoder_outputs)
-    encoder.summary()
 
-    decoder_inputs = keras.Input(shape=(None,), dtype="uint16", name="decoder_inputs")
+    decoder_inputs = keras.Input(shape=(None,), dtype="int64", name="decoder_inputs")
     encoded_seq_inputs = keras.Input(shape=(None, p.model_dim), name="decoder_state_inputs")
 
     x = PositionalEmbedding(p.decoder_seq_len, p.decoder_vocab_size, p.model_dim)(decoder_inputs)
-    x = TransformerDecoder(p)(x, encoded_seq_inputs)
+    for _ in range(p.num_decoder_layers):
+        x = TransformerDecoder(p)(x, encoded_seq_inputs)
     decoder_outputs = layers.Dense(p.decoder_vocab_size, activation="softmax")(x)
     decoder = keras.Model([decoder_inputs, encoded_seq_inputs], decoder_outputs)
-    decoder.summary()
 
     decoder_outputs = decoder([decoder_inputs, encoder_outputs])
     transformer = keras.Model(
-        inputs = (encoder_inputs, decoder_inputs), outputs = decoder_outputs, name="transformer"
+        [encoder_inputs, decoder_inputs], decoder_outputs, name="transformer"
     )
     
     return transformer

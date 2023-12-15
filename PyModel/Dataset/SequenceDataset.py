@@ -115,7 +115,6 @@ class SequenceDataset(BaseDataset,tf.keras.utils.Sequence):
         if num_tokens_to_predict is None:
             num_tokens_to_predict = length
         data = self.get_batch(batch_size, length+num_tokens_to_predict)
-        #Accounting for the eos token added in extract_sequence
         x = data[:, 0:length]
         y = data[:, length:length + num_tokens_to_predict]
         
@@ -170,6 +169,7 @@ if __name__ == "__main__":
         print("Epoch:",i)
         for i in range(num_batches):
             batch = data.__getitem__(i)
+            print(batch.shape)
             if i % 100 == 0:
                 print(f'Batch: {i}')
                 # print(f'encoder_input shape: {batch[0]["encoder_inputs"].shape}')

@@ -189,30 +189,30 @@ if __name__ == '__main__':
     # train,val,test, = dataset.mockTfDataset_from_scale(MAJOR_SCALE, 12, 2)
 
     # ==================Test rolling window efficiency (numpy vs list)==================
-    # Compare time between rolling window and rolling window npwith encoded midi data
+    #Compare time between rolling window and rolling window npwith encoded midi data
 
-    # dataset = TestDataset(p, data_format='npy', min_event_length=p.encoder_seq_len*2)
-    # with open('./data/processed/MIDI-Unprocessed_01_R1_2008_01-04_ORIG_MID--AUDIO_01_R1_2008_wav--2.midi.pickle', 'rb') as f:
-    #     event_sequence = pickle.load(f)
+    dataset = TestDataset(p, data_format='npy', min_event_length=p.encoder_seq_len*2)
+    with open('./data/processed/MIDI-Unprocessed_01_R1_2008_01-04_ORIG_MID--AUDIO_01_R1_2008_wav--2.midi.pickle', 'rb') as f:
+        event_sequence = pickle.load(f)
 
-    # start = time.time()
-    # all_sequences = dataset.rolling_window(event_sequence, 1000,1)
-    # end = time.time()
-    # print("Time taken for rolling window with encoded midi data:{}".format(end - start))
+    start = time.time()
+    all_sequences = dataset.rolling_window(event_sequence, 1000,1)
+    end = time.time()
+    print("Time taken for rolling window with encoded midi data:{}".format(end - start))
 
-    # start = time.time()
-    # all_sequences_np = dataset.rolling_window_np(event_sequence, 1000,1)
-    # end = time.time()
-    # print("Time taken for rolling window np with encoded midi data:{}".format(end - start))
+    start = time.time()
+    all_sequences_np = dataset.rolling_window_np(event_sequence, 1000,1)
+    end = time.time()
+    print("Time taken for rolling window np with encoded midi data:{}".format(end - start))
 
     # ==================Test tf dataset from single file==================
-    dataset = TestDataset(p, data_format='npy')
+    # dataset = TestDataset(p, data_format='npy')
 
-    p.encoder_seq_len = 128
-    train = dataset.mockTfDataset_from_encoded_midi_path('./data/processed_numpy/piano_train.mid.npy', 1)
-    val = dataset.mockTfDataset_from_encoded_midi_path('./data/processed_numpy/piano_test.mid.npy', 1)
-    print(len(train))
-    print(len(val))
+    # p.encoder_seq_len = 128
+    # train = dataset.mockTfDataset_from_encoded_midi_path('./data/processed_numpy/piano_train.mid.npy', 1)
+    # val = dataset.mockTfDataset_from_encoded_midi_path('./data/processed_numpy/piano_test.mid.npy', 1)
+    # print(len(train))
+    # print(len(val))
 
     # # ==================Test tf dataset==================
     # start = time.time()

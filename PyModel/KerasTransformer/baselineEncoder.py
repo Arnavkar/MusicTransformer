@@ -3,20 +3,20 @@ from Transformer.params import Params
 from tensorflow.keras import layers
 import tensorflow as tf
 
-class TransformerEncoderLayer(tf.keras.layers.Layer):
+class TransformerEncoder(tf.keras.layers.Layer):
     def __init__(self, p:Params, **kwargs):
         super().__init__(**kwargs)
-        self.embed_dim = p.model_dim
-        self.dense_dim = p.feed_forward_dim
+        self.model_dim = p.model_dim
+        self.feed_forward_dim = p.feed_forward_dim
         self.num_heads = p.num_heads
 
         self.attention = layers.MultiHeadAttention(
-            num_heads=p.num_heads, key_dim=p.model_dim
+            num_heads=self.num_heads, key_dim=self.model_dim
         )
         self.dense_proj = keras.Sequential(
             [
-                layers.Dense(p.feed_forward_dim, activation="relu"),
-                layers.Dense(p.model_dim),
+                layers.Dense(self.feed_forward_dim, activation="relu"),
+                layers.Dense(self.model_dim),
             ]
         )
         self.layernorm_1 = layers.LayerNormalization()
@@ -39,29 +39,9 @@ class TransformerEncoderLayer(tf.keras.layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "embed_dim": self.embed_dim,
-                "dense_dim": self.dense_dim,
+                "model_dim": self.model_dim,
+                "feed_forward_dim": self.feed_forward_dim,
                 "num_heads": self.num_heads,
-            }
-        )
-        return config
-    
-class TransformerEncoder(tf.keras.layers.Layer):
-    def __init__(self, p:Params, **kwargs):
-        super().__init__(**kwargs)
-        self.num_encoder_layers = p.num_encoder_layers
-        self.enc_layers = [TransformerEncoderLayer(p) for _ in range(self.num_encoder_layers)]
-
-    def call(self, inputs, mask=None):
-        for i in range(self.num_encoder_layers):
-            inputs = self.enc_layers[i](inputs, mask=mask)
-        return inputs
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "num_encoder_layers": self.num_encoder_layers,
             }
         )
         return config
