@@ -3,15 +3,15 @@ from Dataset.TestDataset import TestDataset
 from Dataset.TestDataset import MAJOR_SCALE
 from Dataset.RandomDataset import RandomCropDataset
 
-from Transformer.model import TransformerModel
+from CustomTransformer.model import TransformerModel
 from KerasTransformer.baselineModel import createBaselineTransformer
 
 from time import time
 import tensorflow as tf
-from Transformer.utils import custom_loss, custom_accuracy
+from CustomTransformer.utils import custom_loss, custom_accuracy
 import argparse
 import json
-from Transformer.LRSchedule import LRScheduler
+from CustomTransformer.LRSchedule import LRScheduler
 from train_utils import setup_experiment
 import os
 import traceback

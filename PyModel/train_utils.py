@@ -1,7 +1,7 @@
 import tensorflow as tf
 import os
 import logging
-from Transformer.params import Params, midi_test_params_v2
+from CustomTransformer.params import Params, midi_test_params_v2
 import json
 from datetime import datetime
 

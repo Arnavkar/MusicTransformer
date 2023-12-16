@@ -1,6 +1,6 @@
 import keras_nlp
 import keras
-from Transformer.params import Params, midi_test_params_v2
+from CustomTransformer.params import Params, midi_test_params_v2
 from .baselineEncoder import TransformerEncoder
 from .baselineDecoder import TransformerDecoder
 from tensorflow.keras import layers

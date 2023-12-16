@@ -1,6 +1,6 @@
 import numpy as np
 from Dataset.TestDataset import TestDataset
-from Transformer.params import midi_test_params_v2, Params
+from CustomTransformer.params import midi_test_params_v2, Params
 import pickle
 import json
 

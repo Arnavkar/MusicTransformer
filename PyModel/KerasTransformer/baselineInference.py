@@ -5,12 +5,12 @@ from Dataset.SequenceDataset import SequenceDataset
 import numpy as np
 import argparse
 import json
-from Transformer.params import Params
+from CustomTransformer.params import Params
 from midi_neural_preprocessor.processor import decode_midi
 import os
-from Transformer.utils import custom_loss
+from CustomTransformer.utils import custom_loss
 from datetime import datetime
-from Transformer.LRSchedule import LRScheduler
+from CustomTransformer.LRSchedule import LRScheduler
 from .baselineModel import createBaselineTransformer
 from Dataset.testDataSet import TestDataset
 import traceback

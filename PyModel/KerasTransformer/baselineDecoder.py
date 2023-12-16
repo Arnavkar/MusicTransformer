@@ -1,5 +1,5 @@
 import keras
-from Transformer.params import Params
+from CustomTransformer.params import Params
 from tensorflow.keras import layers
 import tensorflow as tf
 

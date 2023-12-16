@@ -3,7 +3,7 @@ import json
 import random
 import numpy as np
 import pickle
-from Transformer.params import midi_test_params_v2, Params
+from CustomTransformer.params import midi_test_params_v2, Params
 import json
 from time import time
 

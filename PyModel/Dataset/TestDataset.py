@@ -3,8 +3,8 @@ import random
 import pickle
 import numpy as np
 from .BaseDataset import BaseDataset
-from Transformer.params import Params, midi_test_params_v2
-from .memory_precaution import memory_limit, get_memory
+from CustomTransformer.params import Params, midi_test_params_v2
+import resource
 import sys
 import time
 import os
@@ -14,6 +14,22 @@ MINOR_SCALE = [24, 26, 27, 29, 31, 32, 34]
 MAJOR_ARPEGGIO_7 = [24, 28, 31, 35]
 MINOR_ARPEGGIO_7 = [24, 27, 31, 34]
 MAX_VAL = 127
+
+
+def memory_limit(percent):
+    """Limit max memory usage to half."""
+    soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+    # Convert KiB to bytes, and divide in two to half
+    resource.setrlimit(resource.RLIMIT_AS, (int(get_memory() * 1024 * percent), hard))
+
+def get_memory():
+    with open('/proc/meminfo', 'r') as mem:
+        free_memory = 0
+        for i in mem:
+            sline = i.split()
+            if str(sline[0]) in ('MemFree:', 'Buffers:', 'Cached:'):
+                free_memory += int(sline[1])
+    return free_memory  # KiB
 
 class TestDataset(BaseDataset):
     def __init__(self, 

@@ -1,5 +1,5 @@
 from .BaseDataset import BaseDataset
-from Transformer.params import Params, midi_test_params_v2
+from CustomTransformer.params import Params, midi_test_params_v2
 import tensorflow as tf
 import numpy as np
 import random

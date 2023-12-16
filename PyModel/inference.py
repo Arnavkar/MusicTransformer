@@ -1,4 +1,4 @@
-from Transformer.model import TransformerModel
+from CustomTransformer.model import TransformerModel
 import tensorflow as tf
 from pickle import load
 from keras.preprocessing.sequence import pad_sequences
@@ -6,10 +6,10 @@ from data.CustomDataset import CustomDataset
 import numpy as np
 import argparse
 import json
-from Transformer.params import Params
+from CustomTransformer.params import Params
 from midi_neural_preprocessor.processor import decode_midi
 import os
-from Transformer.utils import custom_loss
+from CustomTransformer.utils import custom_loss
 from datetime import datetime
 
 class Improvisor(tf.Module):

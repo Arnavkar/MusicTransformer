@@ -1,6 +1,6 @@
 from .BaseDataset import BaseDataset
 import tensorflow as tf
-from Transformer.params import Params, midi_test_params_v2
+from CustomTransformer.params import Params, midi_test_params_v2
 import numpy as np
 import random
 import pickle

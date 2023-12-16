@@ -1,16 +1,16 @@
 from data.CustomDataset import CustomDataset
 from tensorflow.keras.metrics import Mean
-from Transformer.model import TransformerModel
+from CustomTransformer.model import TransformerModel
 from time import time
 import tensorflow as tf
-from Transformer.params import midi_test_params_v2, Params
-from Transformer.LRSchedule import LRScheduler
+from CustomTransformer.params import midi_test_params_v2, Params
+from CustomTransformer.LRSchedule import LRScheduler
 from datetime import datetime
 import argparse
 import json
 import os
 import logging
-from Transformer.utils import custom_loss, custom_accuracy
+from CustomTransformer.utils import custom_loss, custom_accuracy
 from train_utils import setup_experiment
 
 if __name__ == "__main__":
