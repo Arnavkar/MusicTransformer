@@ -17,7 +17,7 @@ MAX_VAL = 127
 
 
 def memory_limit(percent):
-    """Limit max memory usage to half."""
+    #Limit max memory usage to half
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
     # Convert KiB to bytes, and divide in two to half
     resource.setrlimit(resource.RLIMIT_AS, (int(get_memory() * 1024 * percent), hard))
@@ -111,15 +111,28 @@ class TestDataset(BaseDataset):
         return all_sequences
     
     def rolling_window_np(self,seq,seq_len, stride=1):
-        # Convert each list to a NumPy array of type uint16
-        ls = []
-        #if sequence is a list and not a numpy array , convert to numpy array
-        if type(seq) == list:
-            seq = np.array(seq, dtype=np.uint16)
+        # # Convert each list to a NumPy array of type uint16
+        # ls = []
+        # #if sequence is a list and not a numpy array , convert to numpy array
+        # if type(seq) == list:
+        #     seq = np.array(seq, dtype=np.uint16)
 
-        for i in range(0,len(seq) - seq_len + 1,stride):
-            ls.append(seq[i: i + seq_len])
-        return np.array(ls)
+        # for i in range(0,len(seq) - seq_len + 1,stride):
+        #     ls.append(seq[i: i + seq_len])
+        # return np.array(ls)
+
+        # Ensure the sequence is a numpy array
+        if type(seq) == list:
+            seq = np.array(seq,  dtype=np.uint16)
+
+        # Compute the shape of the resulting 2D array after applying the rolling window
+        shape = seq.shape[:-1] + (seq.shape[-1] - seq_len + 1, seq_len)
+
+        # Compute the strides to be used for creating the rolling window view
+        strides = seq.strides + (seq.strides[-1],)
+
+        # Create the rolling window view using as_strided
+        return np.lib.stride_tricks.as_strided(seq, shape=shape, strides=strides)
     
     def get_all_sequences_by_split_np(self,split, seq_len,stride=1):
         print("Getting all sequences for split:{}".format(split))
@@ -221,62 +234,49 @@ if __name__ == '__main__':
     end = time.time()
     print("Time taken for rolling window np with encoded midi data:{}".format(end - start))
 
-    # ==================Test tf dataset from single file==================
-    # dataset = TestDataset(p, data_format='npy')
+    #check equality across all sequences
+    for i in range(len(all_sequences)):
+        # print("Sequence {} is equal to {}".format(all_sequences[i],all_sequences_np[i]))
+        assert np.array_equal(all_sequences[i],all_sequences_np[i])
 
-    # p.encoder_seq_len = 128
-    # train = dataset.mockTfDataset_from_encoded_midi_path('./data/processed_numpy/piano_train.mid.npy', 1)
-    # val = dataset.mockTfDataset_from_encoded_midi_path('./data/processed_numpy/piano_test.mid.npy', 1)
-    # print(len(train))
-    # print(len(val))
+    # ==================Test tf dataset==================
+    start = time.time()
+    dataset = TestDataset(p, data_format='pickle', min_event_length=p.encoder_seq_len*2, num_files_by_split={'train':2,'validation':1,'test':1})
+    
+    #limit num files considered
+    print(dataset)
+    train,val,test = dataset.mockTfDataset_from_encoded_midi()
+    end = time.time()
+    print("Time taken for creating tf dataset:{}".format(end - start))
 
-    # # ==================Test tf dataset==================
-    # start = time.time()
-    # dataset = TestDataset(p, data_format='pickle', min_event_length=p.encoder_seq_len*2, num_files_by_split={'train':8,'validation':2,'test':2})
-    # #limit num files considered
-    # print(dataset)
-    # train,val,test = dataset.mockTfDataset_from_encoded_midi(2)
-    # end = time.time()
-    # print("Time taken for creating tf dataset:{}".format(end - start))
+    start = time.time()
+    dataset = TestDataset(p, data_format='npy', min_event_length=p.encoder_seq_len*2, num_files_by_split={'train':2,'validation':1,'test':1})
 
-    # start = time.time()
-    # dataset = TestDataset(p, data_format='npy', min_event_length=p.encoder_seq_len*2, num_files_by_split={'train':8,'validation':2,'test':2})
+    print(dataset)
+    train_np,val_np,test_np = dataset.mockTfDataset_from_encoded_midi()
+    end = time.time()
+    print("Time taken for creating tf dataset:{}".format(end - start))
 
-    # print(dataset)
-    # train_np,val_np,test_np = dataset.mockTfDataset_from_encoded_midi_np(2)
-    # end = time.time()
-    # print("Time taken for creating tf dataset:{}".format(end - start))
+    # train = train.shuffle(len(train))
+    train = train.batch(16, drop_remainder=True)
+    train = train.map(dataset.format_dataset)
 
-    # # train = train.shuffle(len(train))
-    # train = train.batch(2, drop_remainder=True)
-    # train = train.map(dataset.format_dataset)
+    # val = val.shuffle(len(val))
+    val = val.batch(16, drop_remainder=True)
+    val = val.map(dataset.format_dataset)
 
-    # # val = val.shuffle(len(val))
-    # val = val.batch(2, drop_remainder=True)
-    # val = val.map(dataset.format_dataset)
+    # train_np = train_np.shuffle(len(train_np))
+    train_np = train_np.batch(16, drop_remainder=True)
+    train_np = train_np.map(dataset.format_dataset)
 
-    # # train_np = train_np.shuffle(len(train_np))
-    # train_np = train_np.batch(2, drop_remainder=True)
-    # train_np = train_np.map(dataset.format_dataset)
+    # val_np = val_np.shuffle(len(val_np))
+    val_np = val_np.batch(16, drop_remainder=True)
+    val_np = val_np.map(dataset.format_dataset)
 
-    # # val_np = val_np.shuffle(len(val_np))
-    # val_np = val_np.batch(2, drop_remainder=True)
-    # val_np = val_np.map(dataset.format_dataset)
-
-    # for x , x_np in zip(train.take(len(train)), train_np.take(len(train_np))):
-    #     print(x), print(x_np)
-    #     print("encoder Inputs are equal:{}".format(np.array_equal(x[0]['encoder_inputs'],x_np[0]['encoder_inputs'])))
-    #     print("decoder inputs are equal:{}".format(np.array_equal(x[0]['decoder_inputs'],x_np[0]['decoder_inputs'])))
-    #     print("Targets are equal:{}".format(np.array_equal(x[1],x_np[1])))
-
-    # print(len(train))
-    # print(len(train_np))
-
-    # #Check that the output is infact the same by taking 1 batch from each dataset
-    # for (inputs, targets),(inputs_np,targets_np) in zip(train.take(1), train_np.take(1)):
-        
-    #     print("Inputs are equal:{}".format(np.array_equal(inputs,inputs_np)))
-    #     print("Targets are equal:{}".format(np.array_equal(targets,targets_np)))
+    for x , x_np in zip(train.take(len(train)), train_np.take(len(train_np))):
+        assert np.array_equal(x[0]['encoder_inputs'],x_np[0]['encoder_inputs'])
+        assert np.array_equal(x[0]['decoder_inputs'],x_np[0]['decoder_inputs'])
+        assert np.array_equal(x[1],x_np[1])
 
     
     #========Test if we can construct fully in memory dataset with np using stride of 2================
@@ -332,4 +332,3 @@ if __name__ == '__main__':
     #     actual_sequences = targets
     #     for i in range(3):
     #         print('test sequence:{}, actual sequence:{}'.format(test_sequences[i],actual_sequences[i]))
-

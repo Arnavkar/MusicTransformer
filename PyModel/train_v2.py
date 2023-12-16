@@ -88,6 +88,7 @@ if __name__ == "__main__":
     if args.dataset_type == 'random':
         train_dataset = RandomCropDataset(p, 'train', min_event_length=p.encoder_seq_len*2,logger=logger)
         val_dataset = RandomCropDataset(p, 'validation', min_event_length=p.encoder_seq_len*2,logger=logger)
+        test_dataset = RandomCropDataset(p, 'test', min_event_length=p.encoder_seq_len*2,logger=logger)
 
         if train_dataset.num_files_to_use != None:
             logger.info(f"Using only {train_dataset.num_files_to_use} files for training")
@@ -96,6 +97,7 @@ if __name__ == "__main__":
 
         train = train_dataset.batch_generator(p.encoder_seq_len)
         val = val_dataset.batch_generator(p.encoder_seq_len)
+        test = test_dataset.batch_generator(p.encoder_seq_len)
 
         #convert to tf.data.Dataset
         train = tf.data.Dataset.from_generator(
@@ -116,6 +118,15 @@ if __name__ == "__main__":
             },
             tf.TensorSpec(shape=(p.batch_size,p.decoder_seq_len-1), dtype=tf.int32))
         )
+        test = tf.data.Dataset.from_generator(
+            test,
+            output_signature=(
+            {
+                'encoder_inputs':tf.TensorSpec(shape=(p.batch_size,p.encoder_seq_len), dtype=tf.int32),
+                'decoder_inputs':tf.TensorSpec(shape=(p.batch_size,p.decoder_seq_len-1), dtype=tf.int32)
+            },
+            tf.TensorSpec(shape=(p.batch_size,p.decoder_seq_len-1), dtype=tf.int32))
+        )
     #====================================================================
     #Callbacks and Optimizer Set up
     #====================================================================
@@ -128,7 +139,7 @@ if __name__ == "__main__":
     
     early_stopping = tf.keras.callbacks.EarlyStopping(
         monitor='val_loss', 
-        patience=5, 
+        patience=10, 
         restore_best_weights=True
     )
 
@@ -166,12 +177,17 @@ if __name__ == "__main__":
         history = model.fit(
             train, 
             validation_data = val,
-            validation_steps = 10,
+            validation_steps = 100,
             epochs = p.epochs,
             callbacks = [model_checkpoint, early_stopping, tensorboard],
             steps_per_epoch=p.steps_per_epoch,
+            use_multiprocessing=True,
+            workers=8,
         )
         logger.info("Training Complete! Total time taken: %.2fs" % (time() - start_time))  
+
+        loss = model.evaluate(test,steps=100)
+        logger.info(f"Test loss: {loss}")
         logger.info("Saving History...")
         with open(base_path+'history.json', 'w') as file:
             json.dump(history.history,file)

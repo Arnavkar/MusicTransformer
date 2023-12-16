@@ -4,11 +4,14 @@ from tensorflow.keras.losses import sparse_categorical_crossentropy
 def check_shape(name,tensor,expectedshape):
         assert tensor.shape == expectedshape, f" {name} expected shape {expectedshape}, shape: {tensor.shape}"
 
-
 def padding_mask(input):
+        # Mask out padding values by marking them with True
         mask = tf.math.equal(input,0)
+
+        # Cast the mask to float32, true values are cast to 1.0 and false values are cast to 0.0
         mask = tf.cast(mask,tf.float32)
-        #NOT SURE
+
+        # Add extra dimensions to add the padding to the attention logits
         return mask[:,tf.newaxis,tf.newaxis,:]
 
 
@@ -17,21 +20,17 @@ def lookahead_mask(shape):
         return 1 - tf.linalg.band_part(tf.ones((shape,shape)), -1, 0)
 
 #define the custom loss function
-#@tf.function
 def custom_loss(y_true,y_pred):
         # Create mask so that the zero padding values are not included in the computation of loss
         padding_mask = tf.math.logical_not(tf.equal(y_true, 0))
         padding_mask = tf.cast(padding_mask, tf.float32)
 
-        # Compute a sparse categorical cross-entropy loss on the unmasked values - logits = True because we do not have the softmax in our model
+        # Compute a sparse categorical cross-entropy loss on the unmasked values - logits = True if we do not have the softmax in our model
         loss = tf.keras.losses.sparse_categorical_crossentropy(y_true, y_pred, from_logits=False) * padding_mask
 
         # Compute the mean loss over the unmasked values
         return tf.reduce_sum(loss) / tf.reduce_sum(padding_mask)
 
-
-#Defining the accuracy function
-#@tf.function
 def custom_accuracy(y_true,y_pred):
         # Create mask so that the zero padding values are not included in the computation of accuracy
         padding_mask = tf.math.logical_not(tf.equal(y_true, 0))

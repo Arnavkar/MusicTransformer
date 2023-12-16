@@ -5,8 +5,6 @@ from CustomTransformer.Encoder import Encoder
 from CustomTransformer.Decoder import Decoder
 from CustomTransformer.utils import padding_mask, lookahead_mask
 from CustomTransformer.params import baseline_test_params, Params
-from tensorflow.keras.losses import sparse_categorical_crossentropy
-from tensorflow import math, reduce_sum, cast, equal, argmax, float32, GradientTape, TensorSpec, function, int64
 
 class TransformerModel(Model):
     def __init__(self,p:Params,**kwargs):
@@ -23,14 +21,17 @@ class TransformerModel(Model):
     def call(self, input_data, training):
         encoder_input, decoder_input = input_data
         padding = padding_mask(encoder_input)
-        #tf.maximum returns maximum element wise - lookahead mask is a upper triangular matrix of ones
+        #tf.maximum returns tensor maximum element wise - lookahead mask is a upper triangular matrix of ones to prevent decoder from looking ahead
         lookahead = tf.maximum(padding_mask(decoder_input),lookahead_mask(decoder_input.shape[1]))
-
+        
+        #encoder takes in encoder input and padding mask
         encoder_output = self.encoder(encoder_input, padding, training)
+
+        #decoder takes in decoder input, encoder output, lookahead mask, and padding mask
         decoder_output = self.decoder(decoder_input, encoder_output, lookahead, padding, training)
         return self.dense(decoder_output)
     
-    #@tf.function
+    #Overriden train_step method to ensure model can be run using model.fit()
     def train_step(self, data):
         train_batchX, train_batchY = data
         encoder_input = train_batchX
@@ -52,7 +53,7 @@ class TransformerModel(Model):
         self.train_accuracy.update_state(accuracy)
         return {"train_loss": self.train_loss.result(), "train_accuracy": self.train_accuracy.result()}
     
-    #@tf.function
+    #Overriden test_step method to ensure model can be evaluated using model.evaluate() and model.predict()
     def test_step(self,val_data):
         val_batchX, val_batchY = val_data
         encoder_input = val_batchX
@@ -64,6 +65,7 @@ class TransformerModel(Model):
         self.val_loss.update_state(loss)
         return {"val_loss": self.val_loss.result()}
     
+    #Custom compile method to ensure model can be run using model.fit() and can receive custom loss and accuracy functions
     def compile(self, optimizer,loss_fn,accuracy_fn):
         super().compile(optimizer = optimizer)
         self.optimizer = optimizer

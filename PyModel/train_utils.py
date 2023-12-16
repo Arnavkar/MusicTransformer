@@ -42,8 +42,8 @@ def setup_params(args,base_params=midi_test_params_v2):
     if args.batch_size:
         p.batch_size = args.batch_size
 
-    # if args.save_freq:
-    #     p.save_freq = args.save_freq
+    if args.save_freq:
+        p.save_freq = args.save_freq
 
     return p
 
@@ -74,21 +74,6 @@ def save_params(p,base_path,logger,args):
         logger.info("Params Saved!")
     except Exception as e:
         logger.error(e)
-
-def get_dataset(train_path, validation_path, batch_size):
-    #Load data based on given paths
-    train_data = tf.data.Dataset.load(train_path)
-    val_data = tf.data.Dataset.load(validation_path)
-
-    #Shuffle data
-    train_data = train_data.shuffle(len(train_data))
-    val_data = val_data.shuffle(len(val_data))
-
-    #Batch data
-    train_data = train_data.batch(batch_size, drop_remainder=True)
-    val_data = val_data.batch(batch_size, drop_remainder=True)
-    
-    return train_data, val_data
 
 def setup_experiment(args):
     #Set up base path for model under models directory

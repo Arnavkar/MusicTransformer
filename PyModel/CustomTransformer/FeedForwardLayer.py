@@ -11,8 +11,11 @@ class FeedForward(Layer):
         super(FeedForward,self).__init__(**kwargs)
         self.d_in = d_in
         self.d_out = d_out
-        self.dense1 = Dense(self.d_in)  # First fully connected layer takes in input dimensions
-        self.dense2 = Dense(self.d_out)  # Second fully connected layer, based on model output dimensions
+
+        # First fully connected layer takes in input dimensions
+        self.dense1 = Dense(self.d_in) 
+        # Second fully connected layer, based on model output dimensions 
+        self.dense2 = Dense(self.d_out)  
         self.activation = ReLU()
     
     def get_config(self):
@@ -26,8 +29,11 @@ class FeedForward(Layer):
         return config
 
     def call(self, x):
+        #Send inputs through the first fully connected layer
         output = self.dense1(x)
+        #Apply ReLU activation
         output = self.activation(output)
+        #Send inputs through the second fully connected layer
         output = self.dense2(output)
         return output
     

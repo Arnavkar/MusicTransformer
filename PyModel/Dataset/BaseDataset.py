@@ -17,9 +17,6 @@ class BaseDataset():
         
         self.logger = logger
         self.data_format = data_format
-        # if self.data_format == 'npy':
-        #     path += "_numpy"
-
         self.maestroJSON = self.get_maestroJSON()
         self.fileDict = self.get_encoded_files(path,min_duration,min_event_length)
         self.params = p

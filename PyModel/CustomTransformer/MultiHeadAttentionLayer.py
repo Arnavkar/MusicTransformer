@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Layer, Dense
 from .utils import check_shape
-from .params import baseline_test_params, Params
+from .params import Params
 import json
 
 @tf.keras.saving.register_keras_serializable()
@@ -17,9 +17,10 @@ class MultiHeadAttentionLayer(Layer):
         self.value_dim = p.value_dim
         self.model_dim = p.model_dim
 
-        #Data input must be divisible by the number of heads
+        #Model dimensionality must be divisible by the number of heads
         assert self.model_dim % self.num_heads == 0
 
+        #Initialize linear layers for projecting queries, keys, values, and output
         self.W_query = Dense(self.key_dim)
         self.W_key = Dense(self.key_dim)
         self.W_value = Dense(self.value_dim)
@@ -44,17 +45,16 @@ class MultiHeadAttentionLayer(Layer):
         return context_vector
     
     def reshape_tensor(self,tensor):
-        #in the shape batch_size, num_heads, seq_len, –1, which essentially flattens the last dimension
         '''
         Eg. for a single input query of size 5(seq len),16(query dim) > 80 elements
         Therefore if 8 heads, each head will have 8/8 = 10 elements
         10 elements >  2 sequences of 5 elements, per batch
         '''
         tensor = tf.reshape(tensor, (tf.shape(tensor)[0], tf.shape(tensor)[1], self.num_heads, -1))
-        # check_shape("reshaped_tensor",tensor,(p.embedding_dim,p.seq_len,p.num_heads,int(p.batch_size/p.num_heads)))
+        check_shape("reshaped_tensor",tensor,(p.embedding_dim,p.seq_len,p.num_heads,int(p.batch_size/p.num_heads)))
 
         tensor = tf.transpose(tensor, perm=[0,2,1,3])
-        # check_shape("transposed_tensor",tensor,(p.embedding_dim,p.num_heads,p.seq_len,int(p.batch_size/p.num_heads)))
+        check_shape("transposed_tensor",tensor,(p.embedding_dim,p.num_heads,p.seq_len,int(p.batch_size/p.num_heads)))
         
         return tensor
     
@@ -87,7 +87,7 @@ class MultiHeadAttentionLayer(Layer):
         # for tensor in [q,k,v]: 
         #     check_shape("input_tensor",tensor,(p.batch_size,p.seq_len,p.embedding_dim))
 
-        #First pass through linear layers
+        #First project through linear layers
         q,k,v = self.W_query(q), self.W_key(k), self.W_value(v)
 
         #Reshape to [batch_size, num_heads, seq_len, dim_per_head] for dot product attention
@@ -95,8 +95,10 @@ class MultiHeadAttentionLayer(Layer):
         # for tensor in [q,k,v]: 
         #     check_shape("reshaped_query", tensor,(p.embedding_dim,p.num_heads,p.seq_len,int(p.batch_size/p.num_heads)))
 
-        #computer scaled dot product attention
+        #compute scaled dot product attention for each head
         attention = self.scaled_dot_product_attention(q, k, v, mask)
+
+        #concat attention representations across each head
         concat_attention = self.concat_heads(attention)
         # check_shape("attention",concat_attention,(p.batch_size,p.seq_len,p.embedding_dim))
 

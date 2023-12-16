@@ -22,7 +22,7 @@ class SequenceDataset(BaseDataset,tf.keras.utils.Sequence):
         self.data = []
         self.complete_files = []
         self.num_files_to_use = num_files_to_use
-        self.mode = mode
+        self.mode = modew
         self.retrieve_files_by_maestro_split()
         self.convert_all_to_FileData()
 
@@ -60,7 +60,8 @@ class SequenceDataset(BaseDataset,tf.keras.utils.Sequence):
     def get_batch(self, batch_size, length):
         data = []
 
-        #select k files from the list of files - allows us to grab a batch from the same file multiple times
+        #select k files from the list of files
+        #allows us to grab a batch from the same file multiple times
         for _ in range(batch_size):
             if len(self.data)==0:
                 self.reset()
@@ -86,7 +87,7 @@ class SequenceDataset(BaseDataset,tf.keras.utils.Sequence):
             #update the start index for the next sequence
             file_data.current_note_index += 1
         else:
-            #if we either 1) perfectly hit the last event in the sequence with a full sequence 2) we hit the end of the file early and need to pad with zeros
+            #We either 1) perfectly hit the last event in the sequence with a full sequence 2) we hit the end of the file early and need to pad with zeros
             #if there is not enough data left in the file (only possible with stride > 1) then start from start index and take the remaining events in the file, padding the remaining sequence with zeros
             data = data[start_index:]
             while len(data) < length:

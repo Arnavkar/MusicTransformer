@@ -3,21 +3,20 @@ import tensorflow as tf
 from .utils import check_shape
 import json
 
-#No Longer in use
-
 @tf.keras.saving.register_keras_serializable()
 class AddNormalization(Layer):
     def __init__(self, **kwargs):
         super(AddNormalization, self).__init__(**kwargs)
-        self.layer_norm = LayerNormalization()  # Layer normalization layer
-        self.add = Add()  # Add layer
+         # Layer normalization layer
+        self.layer_norm = LayerNormalization() 
+        # Add layer - the add layers ensure that keras masks are properly propagated
+        self.add = Add()  
     
     def call(self, x, sublayer_x):
+        #Skip connection
         output = self.add([x + sublayer_x])     
         return self.layer_norm(output)
     
-    #Config to serialize Custom Layer
-    #Explicit Desrialization not required because we are are not passing layers or models to __init__()
     def get_config(self):
         base_config = super(AddNormalization, self).get_config()
         config = {

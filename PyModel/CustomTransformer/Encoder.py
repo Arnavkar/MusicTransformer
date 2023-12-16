@@ -17,12 +17,16 @@ class EncoderLayer(Layer):
         self.dropout_rate = p.dropout_rate
         self.feed_forward_dim = p.feed_forward_dim
 
+        #EncoderMultihead attention layer - Global self attention (fully autoregressive)
         self.mha_layer = MultiHeadAttentionLayer(p, isRelative=False)
         self.add_norm1 = AddNormalization()
         self.dropout1 = Dropout(p.dropout_rate)
+
+        #Feed forward layer
+        self.feed_forward = FeedForward(p.feed_forward_dim, p.model_dim)
         self.add_norm2 = AddNormalization()
         self.dropout2 = Dropout(p.dropout_rate)
-        self.feed_forward = FeedForward(p.feed_forward_dim, p.model_dim)
+        
 
     def get_config(self):
         config = super(EncoderLayer, self).get_config()
@@ -39,7 +43,6 @@ class EncoderLayer(Layer):
     def call(self, x, padding_mask, training):
         attention_output = self.mha_layer([x, x, x], padding_mask)
         # check_shape("attention_output", attention_output, (x.shape[0], self.seq_len, self.model_dim))
-
         attention_output = self.dropout1(attention_output, training=training)
         #the input itself + the scaled attention values
         addnorm_output = self.add_norm1(x, attention_output)
@@ -58,8 +61,10 @@ class Encoder(Layer):
         self.dropout_rate = p.dropout_rate
         self.encoder_vocab_size = p.encoder_vocab_size
         self.num_encoder_layers = p.num_encoder_layers
-
+        
+        #Create the positional encoding layer
         self.positional_encoding = PositionEmbeddingFixedWeights(self.encoder_seq_len, self.encoder_vocab_size, self.model_dim)
+        #N encoder layers
         self.encoder_layers = [EncoderLayer(p) for _ in range(self.num_encoder_layers)]
 
     def get_config(self):

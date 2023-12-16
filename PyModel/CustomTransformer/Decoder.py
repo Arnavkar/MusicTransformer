@@ -11,21 +11,23 @@ from .params import baseline_test_params, Params
 class DecoderLayer(Layer):
     def __init__(self, p:Params, **kwargs):
         super(DecoderLayer,self).__init__(**kwargs)
-        #to build graph
-        # self.build(input_shape=[None, p.seq_len, p.model_dim])
+
         self.seq_len = p.decoder_seq_len
         self.model_dim = p.model_dim
         self.dropout_rate = p.dropout_rate
         self.feed_forward_dim = p.feed_forward_dim
 
+        #First Multiheaed attention layer - Causal self attention (masked)
         self.masked_mha_layer = MultiHeadAttentionLayer(p,isRelative=False)
         self.dropout1 = Dropout(self.dropout_rate)
         self.add_norm1 = AddNormalization()
 
+        #Second Multihead attention layer - encoder-decoder attention or cross attention
         self.mha_layer = MultiHeadAttentionLayer(p,isRelative=False)
         self.dropout2 = Dropout(self.dropout_rate)
         self.add_norm2 = AddNormalization()
         
+        #Feed forward layer
         self.feed_forward = FeedForward(self.feed_forward_dim, self.model_dim)
 
         self.dropout3 = Dropout(self.dropout_rate)
@@ -67,8 +69,9 @@ class Decoder(Layer):
         self.decoder_vocab_size = p.decoder_vocab_size
         self.num_decoder_layers = p.num_decoder_layers
 
+        #Create postiinal encoding layer
         self.positional_encoding = PositionEmbeddingFixedWeights(self.decoder_seq_len, self.decoder_vocab_size, self.model_dim)
-        self.dropout = Dropout(self.dropout_rate)
+        #N decoder stacks
         self.decoder_layers = [
             DecoderLayer(p) for _ in range(self.num_decoder_layers)]
 
@@ -80,14 +83,12 @@ class Decoder(Layer):
             'model_dim': self.model_dim,
             'dropout_rate': self.dropout_rate,
             'num_encoder_layers': self.num_encoder_layers,
-            # 'positional_encoding' is also a layer and needs to handle its config
             'positional_encoding': self.positional_encoding.get_config(),
             'encoder_layers': [layer.get_config() for layer in self.encoder_layers.layers]
         })
     
     def call(self, x, encoder_output, lookahead_mask, padding_mask, training):
         positional_encoding_output = self.positional_encoding(x)
-        positional_encoding_output = self.dropout(positional_encoding_output, training=training)
 
         for layer in self.decoder_layers:
             output = layer(         
