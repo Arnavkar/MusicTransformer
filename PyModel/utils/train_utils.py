@@ -42,8 +42,8 @@ def setup_params(args,base_params=midi_test_params_v2):
     if args.batch_size:
         p.batch_size = args.batch_size
 
-    if args.save_freq:
-        p.save_freq = args.save_freq
+    # if args.save_freq:
+    #     p.save_freq = args.save_freq
 
     return p
 
@@ -63,7 +63,7 @@ def setup_logger(base_path):
     return logger
 
 def save_params(p,base_path,logger,args):
-    #Try to save parameters that will be used later to save the model
+    #Save parameters that will be used later to load the model
     try:
         logger.info("Saving Params...")
         with open(base_path+'params.json', 'w') as file:

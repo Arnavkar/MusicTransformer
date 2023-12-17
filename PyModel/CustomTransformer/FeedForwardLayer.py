@@ -3,8 +3,6 @@ import tensorflow as tf
 from .utils import check_shape
 import json
 
-#no longer in use
-
 @tf.keras.saving.register_keras_serializable()
 class FeedForward(Layer):
     def __init__(self, d_in, d_out, **kwargs):

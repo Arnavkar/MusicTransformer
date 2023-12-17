@@ -12,7 +12,7 @@ from CustomTransformer.utils import custom_loss, custom_accuracy
 import argparse
 import json
 from CustomTransformer.LRSchedule import LRScheduler
-from train_utils import setup_experiment
+from utils.train_utils import setup_experiment
 import os
 import traceback
 

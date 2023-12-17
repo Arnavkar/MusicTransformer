@@ -161,6 +161,8 @@ if __name__ == "__main__":
     #__getitem__ and __len__ methods
     #__calculate_num_batches method caluculates the number of batches in the dataset, which is needed for __len__
     #__getitem__ returns a batch of data, given an idx
+
+    #Should show multiple sequences and an increasing note_index, before they are shifted to the complete list
     #============================================================================================
     num_batches = data.calculate_num_batches(p.encoder_seq_len, 1)
     print(num_batches)

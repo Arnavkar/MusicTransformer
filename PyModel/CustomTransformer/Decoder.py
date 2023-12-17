@@ -115,6 +115,3 @@ if __name__ == "__main__":
     output = decoder_layer(decoder_layer_input_seq, enc_output, None, None, True)
     print(f'Decoder Layer output: {output}')
     # decoder_layer.summary()
-
-
-#One shot, Two shot , 3 Shot training 

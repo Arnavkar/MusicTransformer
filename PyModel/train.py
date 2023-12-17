@@ -11,7 +11,7 @@ import json
 import os
 import logging
 from CustomTransformer.utils import custom_loss, custom_accuracy
-from train_utils import setup_experiment
+from PyModel.utils.train_utils import setup_experiment
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"]="1"
