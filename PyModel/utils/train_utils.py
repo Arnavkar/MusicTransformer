@@ -7,7 +7,9 @@ from datetime import datetime
 
 def setup_path(args):
     #Check if model already exists - ask about override
-    if os.path.exists('./models/' + args.name + '/'):
+    #TODO: CCHANGE BACK TO MODELS
+    
+    if not args.overwrite == True and os.path.exists('./models_to_analyze/' + args.name + '/'):
         print('Model already exists - do you want to continue? Y/N')
         char = input().lower()
         while char not in ['y','n']:
@@ -17,7 +19,7 @@ def setup_path(args):
             exit()
     
     #Set up base path for model under models directory
-    base_path = './models/' + args.name +  '/'
+    base_path = './models_to_analyze/' + args.name +  '/'
     if not os.path.exists(base_path):
         os.mkdir(base_path)
     return base_path
@@ -42,8 +44,11 @@ def setup_params(args,base_params=midi_test_params_v2):
     if args.batch_size:
         p.batch_size = args.batch_size
 
-    # if args.save_freq:
-    #     p.save_freq = args.save_freq
+    if args.dropout:
+        p.dropout_rate = args.dropout
+
+    if args.hidden_size:
+        p.model_dim = args.hidden_size
 
     return p
 

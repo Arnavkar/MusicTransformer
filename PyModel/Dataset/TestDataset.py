@@ -111,28 +111,28 @@ class TestDataset(BaseDataset):
         return all_sequences
     
     def rolling_window_np(self,seq,seq_len, stride=1):
-        # # Convert each list to a NumPy array of type uint16
-        # ls = []
-        # #if sequence is a list and not a numpy array , convert to numpy array
-        # if type(seq) == list:
-        #     seq = np.array(seq, dtype=np.uint16)
-
-        # for i in range(0,len(seq) - seq_len + 1,stride):
-        #     ls.append(seq[i: i + seq_len])
-        # return np.array(ls)
-
-        # Ensure the sequence is a numpy array
+        # Convert each list to a NumPy array of type uint16
+        ls = []
+        #if sequence is a list and not a numpy array , convert to numpy array
         if type(seq) == list:
-            seq = np.array(seq,  dtype=np.uint16)
+            seq = np.array(seq, dtype=np.uint16)
 
-        # Compute the shape of the resulting 2D array after applying the rolling window
-        shape = seq.shape[:-1] + (seq.shape[-1] - seq_len + 1, seq_len)
+        for i in range(0,len(seq) - seq_len + 1,stride):
+            ls.append(seq[i: i + seq_len])
+        return np.array(ls)
 
-        # Compute the strides to be used for creating the rolling window view
-        strides = seq.strides + (seq.strides[-1],)
+        # # Ensure the sequence is a numpy array
+        # if type(seq) == list:
+        #     seq = np.array(seq,  dtype=np.uint16)
 
-        # Create the rolling window view using as_strided
-        return np.lib.stride_tricks.as_strided(seq, shape=shape, strides=strides)
+        # # Compute the shape of the resulting 2D array after applying the rolling window
+        # shape = seq.shape[:-1] + (seq.shape[-1] - seq_len + 1, seq_len)
+
+        # # Compute the strides to be used for creating the rolling window view
+        # strides = seq.strides + (seq.strides[-1],)
+
+        # # Create the rolling window view using as_strided
+        # return np.lib.stride_tricks.as_strided(seq, shape=shape, strides=strides)
     
     def get_all_sequences_by_split_np(self,split, seq_len,stride=1):
         print("Getting all sequences for split:{}".format(split))
@@ -150,7 +150,7 @@ class TestDataset(BaseDataset):
         all_sequences_np = np.concatenate(all_sequences, axis=0)
         return all_sequences_np
     
-    def mockTfDataset_from_encoded_midi_np(self, stride=1):
+    def tfDataset_from_encoded_midi_np(self, stride=1):
         datasets = {}
 
         for key in self.data.keys():
@@ -165,7 +165,7 @@ class TestDataset(BaseDataset):
 
         return datasets['train'], datasets['validation'], datasets['test']
 
-    def mockTfDataset_from_encoded_midi_pickle(self, stride=1):
+    def tfDataset_from_encoded_midi_pickle(self, stride=1):
         datasets = {}
 
         for key in self.data.keys():
@@ -176,15 +176,15 @@ class TestDataset(BaseDataset):
         
         return datasets['train'], datasets['validation'], datasets['test']
     
-    def mockTfDataset_from_encoded_midi(self, stride=1):
+    def tfDataset_from_encoded_midi(self, stride=1):
         if self.data_format == 'pickle':
-            return self.mockTfDataset_from_encoded_midi_pickle(stride)
+            return self.tfDataset_from_encoded_midi_pickle(stride)
         elif self.data_format == 'npy':
-            return self.mockTfDataset_from_encoded_midi_np(stride)
+            return self.tfDataset_from_encoded_midi_np(stride)
         else:
             raise Exception("Invalid data format")
         
-    def mockTfDataset_from_encoded_midi_path(self, path ,stride=1):
+    def tfDataset_from_encoded_midi_path(self, path ,stride=1):
         with open(path, 'rb') as f:
             event_sequence = np.load(f,allow_pickle=True)
         sequences = self.rolling_window_np(event_sequence, self.params.encoder_seq_len * 2, stride)
@@ -204,22 +204,25 @@ class TestDataset(BaseDataset):
                 self.data['test'].append(self.fileDict[i])
             else:
                 raise Exception(f"Invalid mode found: {self.maestroJSON['split'][f'{i}']}")
+        #Print counts
+        print("Number of files for training:{}".format(len(self.data['train'])))
+        print("Number of files for validation:{}".format(len(self.data['validation'])))
+        print("Number of files for testing:{}".format(len(self.data['test'])))
+
+
         
     def __repr__(self) -> str:
         return "<TestDataset has {} files for training, {} files for validation, {} files for testing>".format(len(self.data['train']),len(self.data['validation']),len(self.data['test']))
 
-
-if __name__ == '__main__':
-    p = Params(midi_test_params_v2)
-    os.environ["CUDA_VISIBLE_DEVICES"]="1"
+#ALL TESTS BELOW
     
-    # ==================Test creating scales for easier problem==================
-    # dataset = TestDataset(p, data_format='npy', min_event_length=p.encoder_seq_len*2)
-    # train,val,test, = dataset.mockTfDataset_from_scale(MAJOR_SCALE, 12, 2)
+#==================Test creating scales for easier problem==================
+def test_scale_creation(p):
+    dataset = TestDataset(p, data_format='npy', min_event_length=p.encoder_seq_len*2)
+    train,val,test, = dataset.mockTfDataset_from_scale(MAJOR_SCALE, 12, 2)
 
-    # ==================Test rolling window efficiency (numpy vs list)==================
-    #Compare time between rolling window and rolling window npwith encoded midi data
-
+# ==================Test rolling window efficiency (numpy vs list)==================
+def test_rolling_window_efficiency(p):
     dataset = TestDataset(p, data_format='npy', min_event_length=p.encoder_seq_len*2)
     with open('./data/processed/MIDI-Unprocessed_01_R1_2008_01-04_ORIG_MID--AUDIO_01_R1_2008_wav--2.midi.pickle', 'rb') as f:
         event_sequence = pickle.load(f)
@@ -239,21 +242,22 @@ if __name__ == '__main__':
         # print("Sequence {} is equal to {}".format(all_sequences[i],all_sequences_np[i]))
         assert np.array_equal(all_sequences[i],all_sequences_np[i])
 
-    # ==================Test tf dataset==================
+# ==================Test tf dataset creation with numpy and list implementation - verify equality==================
+def ensure_tf_dataset_creation_is_equal(p):
     start = time.time()
-    dataset = TestDataset(p, data_format='pickle', min_event_length=p.encoder_seq_len*2, num_files_by_split={'train':2,'validation':1,'test':1})
+    dataset = TestDataset(p, data_format='pickle', min_event_length=p.encoder_seq_len*2, num_files_by_split={'train':1,'validation':1,'test':1})
     
     #limit num files considered
     print(dataset)
-    train,val,test = dataset.mockTfDataset_from_encoded_midi()
+    train,val,test = dataset.tfDataset_from_encoded_midi()
     end = time.time()
     print("Time taken for creating tf dataset:{}".format(end - start))
 
     start = time.time()
-    dataset = TestDataset(p, data_format='npy', min_event_length=p.encoder_seq_len*2, num_files_by_split={'train':2,'validation':1,'test':1})
+    dataset = TestDataset(p, data_format='npy', min_event_length=p.encoder_seq_len*2, num_files_by_split={'train':1,'validation':1,'test':1})
 
     print(dataset)
-    train_np,val_np,test_np = dataset.mockTfDataset_from_encoded_midi()
+    train_np,val_np,test_np = dataset.tfDataset_from_encoded_midi()
     end = time.time()
     print("Time taken for creating tf dataset:{}".format(end - start))
 
@@ -278,7 +282,56 @@ if __name__ == '__main__':
         assert np.array_equal(x[0]['decoder_inputs'],x_np[0]['decoder_inputs'])
         assert np.array_equal(x[1],x_np[1])
 
+# ==================Test tf dataset for test split specifically==================
+def test_tf_dataset_creation(p):
+    dataset = TestDataset(p, data_format='npy', min_event_length=p.encoder_seq_len*2, num_files_by_split={'train':1,'validation':1,'test':177})
+    _,_,test = dataset.tfDataset_from_encoded_midi(stride=p.encoder_seq_len)
+    print(len(test))
+    test = test.batch(8, drop_remainder=True)
+    test = test.map(dataset.format_dataset)
+
+    for x in test.take(1):
+        #save shape
+        encoder_inputs_shape = x[0]['encoder_inputs'].shape
+        decoder_inputs_shape = x[0]['decoder_inputs'].shape
+        decoder_outputs_shape = x[1].shape
+        #save variables
+        encoder_inputs = x[0]['encoder_inputs']
+        decoder_inputs = x[0]['decoder_inputs']
+        decoder_outputs = x[1]
     
+    #check shape across all exmaples before saving
+    for x in test.take(len(test)):
+        assert encoder_inputs_shape == x[0]['encoder_inputs'].shape
+        assert decoder_inputs_shape == x[0]['decoder_inputs'].shape
+        assert decoder_outputs_shape == x[1].shape
+        
+    # save the test_dataset
+    path = './data/test_tf_dataset_instance'
+    tf.data.Dataset.save(test, path)
+
+    #try loading
+    test_dataset = tf.data.Dataset.load(path)
+    for x in test_dataset.take(1):
+        #save variables after load
+        encoder_inputs_loaded = x[0]['encoder_inputs']
+        decoder_inputs_loaded = x[0]['decoder_inputs']
+        decoder_outputs_loaded = x[1]
+    
+    #check equality
+    assert np.array_equal(encoder_inputs,encoder_inputs_loaded)
+    assert np.array_equal(decoder_inputs,decoder_inputs_loaded)
+    assert np.array_equal(decoder_outputs,decoder_outputs_loaded)
+    
+if __name__ == '__main__':
+    p = Params(midi_test_params_v2)
+
+    # test_scale_creation(p)
+    # test_rolling_window_efficiency(p)
+    # ensure_tf_dataset_creation_is_equal(p)
+    test_tf_dataset_creation(p)
+
+
     #========Test if we can construct fully in memory dataset with np using stride of 2================
     # memory_limit(0.8)
     # strategy = tf.distribute.MirroredStrategy()

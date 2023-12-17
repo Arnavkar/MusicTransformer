@@ -8,7 +8,7 @@ import json
 from CustomTransformer.params import Params
 from midi_neural_preprocessor.processor import decode_midi
 import os
-from CustomTransformer.utils import custom_loss
+from CustomTransformer.utils import custom_loss, custom_accuracy
 from datetime import datetime
 from CustomTransformer.LRSchedule import LRScheduler
 from .baselineModel import createBaselineTransformer
@@ -27,14 +27,15 @@ class Improvisor(tf.Module):
         encoder_input = pad_sequences(input_sequence, maxlen=self.params.encoder_seq_len, padding='post')
         encoder_input = tf.convert_to_tensor(encoder_input, dtype=tf.uint16)
 
-        start_token = tf.convert_to_tensor([self.params.token_sos],dtype=tf.int64)
-        decoder_output = tf.TensorArray(dtype=tf.int64, size=0, dynamic_size=True)
+        start_token = tf.convert_to_tensor([self.params.token_sos],dtype=tf.uint16)
+        decoder_output = tf.TensorArray(dtype=tf.uint16, size=0, dynamic_size=True)
         decoder_output = decoder_output.write(0,start_token)
         
         i = 0
         print("Decoding....")
         while True:
             prediction = self.model((encoder_input, tf.transpose(decoder_output.stack())), training=False)
+            print(prediction)
             prediction = prediction[:, -1, :]
 
             # Select the prediction with the highest score

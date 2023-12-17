@@ -17,8 +17,6 @@ import os
 import traceback
 
 if __name__ == "__main__":
-    #Set visible GPU devices if needed
-    # os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
     os.environ['NCCL_DEBUG'] = 'INFO'
     
     #handle all command line arguments and parsing
@@ -30,20 +28,27 @@ if __name__ == "__main__":
     parser.add_argument('-es','--encoder_seq_len',type=int, required=False)
     parser.add_argument('-ds','--decoder_seq_len',type=int, required=False)
     parser.add_argument('-l','--num_layers', type=int, required=False)
+    parser.add_argument('-d','--dropout', type=int, required=False)
+    parser.add_argument('-hs','--hidden_size', type=int, required=False)
     parser.add_argument('--dataset-type', type=str, required=False)
+    parser.add_argument('--choose-gpu', type=str, required=False)
     parser.add_argument('--custom', type=bool, required=False)
     args = parser.parse_args()
 
-    print(args)
     #Set up experiment
     base_path, p, logger = setup_experiment(args)
 
-    strategy = tf.distribute.MirroredStrategy()
+    #log args
+    logger.info(f"params: {p}")
+
+    #set visibile gpu devices eg. "0"
+    if args.choose_gpu:
+        print(f"Setting visible gpu devices to {args.choose_gpu}")
+        #set visible gpu devices
+        os.environ["CUDA_VISIBLE_DEVICES"]=args.choose_gpu
     
     #Set up Dataset - different iterations
-    if not args.dataset_type:
-        #set default to sequence
-        args.dataset_type = 'sequence'
+    if not args.dataset_type: args.dataset_type = 'random'
 
     # ====================================================================
     # Using TestDataset
@@ -97,7 +102,6 @@ if __name__ == "__main__":
 
         train = train_dataset.batch_generator(p.encoder_seq_len)
         val = val_dataset.batch_generator(p.encoder_seq_len)
-        test = test_dataset.batch_generator(p.encoder_seq_len)
 
         #convert to tf.data.Dataset
         train = tf.data.Dataset.from_generator(
@@ -118,15 +122,6 @@ if __name__ == "__main__":
             },
             tf.TensorSpec(shape=(p.batch_size,p.decoder_seq_len-1), dtype=tf.int32))
         )
-        test = tf.data.Dataset.from_generator(
-            test,
-            output_signature=(
-            {
-                'encoder_inputs':tf.TensorSpec(shape=(p.batch_size,p.encoder_seq_len), dtype=tf.int32),
-                'decoder_inputs':tf.TensorSpec(shape=(p.batch_size,p.decoder_seq_len-1), dtype=tf.int32)
-            },
-            tf.TensorSpec(shape=(p.batch_size,p.decoder_seq_len-1), dtype=tf.int32))
-        )
     #====================================================================
     #Callbacks and Optimizer Set up
     #====================================================================
@@ -139,7 +134,7 @@ if __name__ == "__main__":
     
     early_stopping = tf.keras.callbacks.EarlyStopping(
         monitor='val_loss', 
-        patience=10, 
+        patience=5, 
         restore_best_weights=True
     )
 
@@ -165,12 +160,15 @@ if __name__ == "__main__":
         logger.info("Creating Keras transformer...")
         model = createBaselineTransformer(p)
         model.compile(optimizer = optimizer, loss=custom_loss, metrics=[custom_accuracy])
-        
+
+    #model summary 
+    logger.info(model.summary())
+
+    test = tf.data.Dataset.load('./data/test_tf_dataset_instance')
 
     #====================================================================
     #Train model and save history
     #====================================================================
-
     start_time = time()
     try:
         logger.info("Training model...")
@@ -185,9 +183,12 @@ if __name__ == "__main__":
             workers=8,
         )
         logger.info("Training Complete! Total time taken: %.2fs" % (time() - start_time))  
-
-        loss = model.evaluate(test,steps=100)
+        #evaluate 
+        logger.info("Evaluating model...")
+        loss, accuracy = model.evaluate(test)
+        logger.info(f"Test accuracy: {accuracy}")
         logger.info(f"Test loss: {loss}")
+        
         logger.info("Saving History...")
         with open(base_path+'history.json', 'w') as file:
             json.dump(history.history,file)
