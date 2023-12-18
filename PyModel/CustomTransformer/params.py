@@ -33,7 +33,7 @@ midi_test_params_v2 = {
     "batch_size" :8,  # Batch size from the training process
     "l_r":0.001, #Learning rate when not useing a learning rate scheduler
     "feed_forward_dim" : 1042, #Dimensionality of the hidden layer in the feed forward network
-    "dropout_rate" : 0.1, #Dropout rate for the dropout layers 
+    "dropout_rate" : 0.2, #Dropout rate for the dropout layers 
     "encoder_vocab_size" : event_dim, #Vocab size of the input tokens - same in encoder and decoder
     "num_encoder_layers" : 4, #Number of encoder stacks
     "decoder_vocab_size" : event_dim,

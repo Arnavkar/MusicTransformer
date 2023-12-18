@@ -12,9 +12,10 @@ from CustomTransformer.utils import custom_loss, custom_accuracy
 from datetime import datetime
 from CustomTransformer.LRSchedule import LRScheduler
 from .baselineModel import createBaselineTransformer
-from Dataset.testDataSet import TestDataset
 import traceback
 import sys
+from Dataset.TestDataset import TestDataset
+
 
 
 class Improvisor(tf.Module):
@@ -25,10 +26,10 @@ class Improvisor(tf.Module):
     
     def __call__(self, input_sequence):
         encoder_input = pad_sequences(input_sequence, maxlen=self.params.encoder_seq_len, padding='post')
-        encoder_input = tf.convert_to_tensor(encoder_input, dtype=tf.uint16)
+        encoder_input = tf.convert_to_tensor(encoder_input, dtype=tf.int64)
 
-        start_token = tf.convert_to_tensor([self.params.token_sos],dtype=tf.uint16)
-        decoder_output = tf.TensorArray(dtype=tf.uint16, size=0, dynamic_size=True)
+        start_token = tf.convert_to_tensor([self.params.token_sos],dtype=tf.int64)
+        decoder_output = tf.TensorArray(dtype=tf.int64, size=0, dynamic_size=True)
         decoder_output = decoder_output.write(0,start_token)
         
         i = 0
@@ -58,19 +59,20 @@ class Improvisor(tf.Module):
         return output
 
 if __name__ == '__main__':
-    os.environ["CUDA_VISIBLE_DEVICES"]="1"
+    #USE CPU
+    os.environ["CUDA_VISIBLE_DEVICES"]="-1"
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-n',"--model_name", type=str,required= True)
     parser.add_argument('-c','--checkpoint_type', type=str, required=True)
+    parser.add_argument('-p',"--patience", type=int,required= True)
     args = parser.parse_args()
 
-    print(args)
+    model_dir = './models_to_analyze/' + args.model_name
 
-    model_params = json.load(open('./models/' + args.model_name + '/params.json', 'rb'))
+    model_params = json.load(open(model_dir + '/params.json', 'rb'))
     p = Params(model_params)
-    # model = TransformerModel(p)
-    
+
     model = createBaselineTransformer(p)
     optimizer = tf.keras.optimizers.legacy.Adam(LRScheduler(p.model_dim), p.beta_1, p.beta_2, p.epsilon)
 
@@ -79,19 +81,21 @@ if __name__ == '__main__':
     )
 
     if args.checkpoint_type == 'pb':
-        model = tf.keras.models.load_model('./models/' + args.model_name + '/checkpoints')
+        model = tf.keras.models.load_model(model_dir + '/checkpoints')
 
     elif args.checkpoint_type == 'ckpt':
     #instantiate model
-        checkpoint_path = './models/' + args.model_name
-        latest_checkpoint = tf.train.latest_checkpoint(checkpoint_path)    
+        latest_checkpoint = tf.train.latest_checkpoint(model_dir)    
 
         if latest_checkpoint == None:
             print("Retrying")
-            latest_checkpoint = tf.train.latest_checkpoint(checkpoint_path + "/checkpoints")
+            latest_checkpoint = tf.train.latest_checkpoint(model_dir + "/checkpoints")
 
         if latest_checkpoint == None:
             raise Exception("No checkpoint found")
+
+        #checkpoint modification to get checkpoint with best val_loss
+        latest_checkpoint = latest_checkpoint[:-2] + str(int(latest_checkpoint[-2:]) - args.patience)
 
         print(f"Latest Checkpoint path: {latest_checkpoint}")
         #Add expect_partial for lazy creation of weights
@@ -130,7 +134,7 @@ if __name__ == '__main__':
 
     #Grab test data from another piece - same key
     dataset = TestDataset(p, data_format='npy', min_event_length=p.encoder_seq_len*2, num_files_by_split={'train':80,'validation':10,'test':10})
-    _, _, test_data = dataset.mockTfDataset_from_encoded_midi(3)
+    _, _, test_data = dataset.tfDataset_from_encoded_midi(3)
 
     test_data = test_data.shuffle(len(test_data))
     test_data = test_data.batch(p.batch_size, drop_remainder=True)
@@ -147,7 +151,7 @@ if __name__ == '__main__':
 
     if not os.path.exists('./samples'):
         os.mkdir('./samples')
-   
+
     try:
         for i in range(5):
             time_recorded = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
@@ -160,9 +164,6 @@ if __name__ == '__main__':
             # Strip start and end tokens
             model_output = list(improvisor([encoder_inputs[i]]))[1:-1]
             
-            actual_stitched =  inputs + targets
-            output_stitched = inputs + model_output
-            
             #Write to files
             decode_midi(inputs,file_path=sample_path + 'input.midi')
             print('input.mid written')
@@ -170,10 +171,6 @@ if __name__ == '__main__':
             print('actual.mid written')
             decode_midi(model_output,file_path=sample_path + 'output.midi')
             print('output.mid written')
-            decode_midi(actual_stitched,file_path=sample_path + 'actual_stitched.midi')
-            print('actual_stitched.mid written')
-            decode_midi(output_stitched,file_path=sample_path + 'output_stitched.midi')
-            print('output_stitched.mid written')
 
     except Exception as ex:
         os.rmdir(sample_path)

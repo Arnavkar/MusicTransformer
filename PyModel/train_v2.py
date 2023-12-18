@@ -134,7 +134,7 @@ if __name__ == "__main__":
     
     early_stopping = tf.keras.callbacks.EarlyStopping(
         monitor='val_loss', 
-        patience=5, 
+        patience=3, 
         restore_best_weights=True
     )
 
@@ -178,9 +178,7 @@ if __name__ == "__main__":
             validation_steps = 100,
             epochs = p.epochs,
             callbacks = [model_checkpoint, early_stopping, tensorboard],
-            steps_per_epoch=p.steps_per_epoch,
-            use_multiprocessing=True,
-            workers=8,
+            steps_per_epoch=p.steps_per_epoch
         )
         logger.info("Training Complete! Total time taken: %.2fs" % (time() - start_time))  
         #evaluate 
